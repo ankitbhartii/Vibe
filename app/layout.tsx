@@ -13,8 +13,8 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
-      <body className="bg-black text-white antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <body className="bg-black text-white antialiased" suppressHydrationWarning>
         <AudioProvider>
           
           <main className="min-h-screen">
