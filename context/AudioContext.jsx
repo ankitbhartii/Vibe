@@ -332,6 +332,113 @@ export function AudioProvider({ children }) {
     return () => audio.removeEventListener('ended', onEnded)
   }, [handleNext, isRepeat])
 
+  // ── Media Session API: Update lock screen / background media controls metadata ──
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator) || !currentSong) return
+
+    try {
+      const artworkUrl = currentSong.image_url || '/placeholder.png'
+      const absoluteArtworkUrl = artworkUrl.startsWith('http')
+        ? artworkUrl
+        : `${window.location.origin}${artworkUrl.startsWith('/') ? artworkUrl : '/' + artworkUrl}`
+
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.artist || 'Unknown Artist',
+        album: currentSong.album || 'Vibe',
+        artwork: [
+          { src: absoluteArtworkUrl, sizes: '96x96', type: 'image/jpeg' },
+          { src: absoluteArtworkUrl, sizes: '128x128', type: 'image/jpeg' },
+          { src: absoluteArtworkUrl, sizes: '192x192', type: 'image/jpeg' },
+          { src: absoluteArtworkUrl, sizes: '256x256', type: 'image/jpeg' },
+          { src: absoluteArtworkUrl, sizes: '384x384', type: 'image/jpeg' },
+          { src: absoluteArtworkUrl, sizes: '512x512', type: 'image/jpeg' },
+        ],
+      })
+    } catch (error) {
+      console.error('Failed to set media session metadata:', error)
+    }
+  }, [currentSong])
+
+  // ── Media Session API: Sync playback state (playing vs paused) ──
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return
+    try {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+    } catch (error) {
+      console.warn('Failed to sync media session playback state:', error)
+    }
+  }, [isPlaying])
+
+  // ── Media Session API: Register system controls action handlers ──
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return
+
+    const ms = navigator.mediaSession
+
+    try {
+      ms.setActionHandler('play', () => {
+        setIsPlaying(true)
+      })
+      ms.setActionHandler('pause', () => {
+        setIsPlaying(false)
+      })
+      ms.setActionHandler('previoustrack', () => {
+        handlePrev()
+      })
+      ms.setActionHandler('nexttrack', () => {
+        handleNext()
+      })
+      ms.setActionHandler('seekto', (details) => {
+        if (audioRef.current && details.seekTime !== undefined) {
+          audioRef.current.currentTime = details.seekTime
+        }
+      })
+    } catch (error) {
+      console.error('Failed to register media session action handlers:', error)
+    }
+
+    return () => {
+      try {
+        ms.setActionHandler('play', null)
+        ms.setActionHandler('pause', null)
+        ms.setActionHandler('previoustrack', null)
+        ms.setActionHandler('nexttrack', null)
+        ms.setActionHandler('seekto', null)
+      } catch (_) {}
+    }
+  }, [handleNext, handlePrev, setIsPlaying])
+
+  // ── Media Session API: Update playback progress (scrubber) on lock screen ──
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || typeof window === 'undefined' || !('mediaSession' in navigator)) return
+
+    const updatePosition = () => {
+      if ('setPositionState' in navigator.mediaSession) {
+        try {
+          if (audio.duration && !isNaN(audio.duration)) {
+            navigator.mediaSession.setPositionState({
+              duration: audio.duration,
+              playbackRate: audio.playbackRate || 1.0,
+              position: audio.currentTime
+            })
+          }
+        } catch (error) {
+          console.debug('Failed to set media session position state:', error)
+        }
+      }
+    }
+
+    audio.addEventListener('timeupdate', updatePosition)
+    audio.addEventListener('durationchange', updatePosition)
+    
+    return () => {
+      audio.removeEventListener('timeupdate', updatePosition)
+      audio.removeEventListener('durationchange', updatePosition)
+    }
+  }, [])
+
   useEffect(() => { fetchPlaylists() }, [])
 
   const toggleFavorite = async (songOrId, currentVal) => {
