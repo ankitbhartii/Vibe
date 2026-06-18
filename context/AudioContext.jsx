@@ -384,7 +384,8 @@ export function AudioProvider({ children }) {
       history, savedAlbums, savedArtists, savedPodcasts,
       toggleSaveAlbum, toggleFollowArtist, toggleSubscribePodcast,
       queue, setQueue, autoplayEnabled, setAutoplayEnabled,
-      playNext, addToQueue, removeFromQueue, clearQueue
+      playNext, addToQueue, removeFromQueue, clearQueue,
+      playlist, setPlaylist
     }}>
       {children}
     </AudioContext.Provider>
