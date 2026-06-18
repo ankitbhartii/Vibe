@@ -30,6 +30,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CUSTOM_DOMAIN=${CUSTOM_DOMAIN}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
     depends_on:
       - redis
     restart: unless-stopped
