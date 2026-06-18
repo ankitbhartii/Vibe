@@ -24,7 +24,7 @@ export default function DashboardLayout({ children }) {
           
           {/* SECTION 1: BROWSE */}
           <div className="flex flex-col gap-1.5">
-            <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">Discover</h3>
+            <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">Browse</h3>
             <nav className="flex flex-col gap-1">
               <button 
                 onClick={() => { setActiveMenu('new_releases'); setSelectedPlaylistId(null); }}
@@ -36,16 +36,73 @@ export default function DashboardLayout({ children }) {
               >
                 <span>🎵</span> New Releases
               </button>
-              <button className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold text-zinc-500 cursor-not-allowed border border-transparent">
-                <span>📈</span> Top Charts <span className="text-[9px] text-[#1db954] font-mono ml-auto font-bold uppercase">Soon</span>
+              <button 
+                onClick={() => { setActiveMenu('top_charts'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'top_charts' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>📈</span> Top Charts
+              </button>
+              <button 
+                onClick={() => { setActiveMenu('top_playlists'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'top_playlists' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>📁</span> Top Playlists
+              </button>
+              <button 
+                onClick={() => { setActiveMenu('podcasts'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'podcasts' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>🎙️</span> Podcasts
+              </button>
+              <button 
+                onClick={() => { setActiveMenu('top_artists'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'top_artists' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>👤</span> Top Artists
+              </button>
+              <button 
+                onClick={() => { setActiveMenu('radio'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'radio' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>📻</span> Radio
               </button>
             </nav>
           </div>
-
+ 
           {/* SECTION 2: MY LIBRARY */}
           <div className="flex flex-col gap-1.5">
             <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">My Library</h3>
             <nav className="flex flex-col gap-1">
+              <button 
+                onClick={() => { setActiveMenu('library_history'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'library_history' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>🕒</span> History
+              </button>
               <button 
                 onClick={() => { setActiveMenu('liked_songs'); setSelectedPlaylistId(null); }}
                 className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
@@ -56,6 +113,36 @@ export default function DashboardLayout({ children }) {
               >
                 <span>💚</span> Liked Songs
               </button>
+              <button 
+                onClick={() => { setActiveMenu('library_albums'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'library_albums' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>💽</span> Albums
+              </button>
+              <button 
+                onClick={() => { setActiveMenu('library_podcasts'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'library_podcasts' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>🎙️</span> Podcasts
+              </button>
+              <button 
+                onClick={() => { setActiveMenu('library_artists'); setSelectedPlaylistId(null); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  activeMenu === 'library_artists' 
+                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
+                }`}
+              >
+                <span>👥</span> Artists
+              </button>
             </nav>
           </div>
 
@@ -63,7 +150,7 @@ export default function DashboardLayout({ children }) {
           <div className="flex flex-col gap-1.5 flex-1 min-h-0">
             <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">Playlists</h3>
             
-            <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 max-h-[220px]">
+            <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 max-h-[160px]">
               {customPlaylists && customPlaylists.map((playlist) => (
                 <button 
                   key={playlist.id}
