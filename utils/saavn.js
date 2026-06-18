@@ -149,6 +149,15 @@ export async function getLaunchData() {
       subtitle: item.subtitle || `Chart`,
       image_url: (item.image || '').replace('150x150', '500x500'),
       count: parseInt(item.count || '0', 10)
+    })),
+    radio: (data.radio || []).map((item, index) => ({
+      id: item.name || `radio-${index}`,
+      type: 'radio',
+      title: item.station_display_text || item.name || '',
+      subtitle: item.description || 'JioSaavn Radio Station',
+      image_url: (item.image || '').replace('150x150', '500x500'),
+      language: item.language || '',
+      color: item.color || '#121212'
     }))
   }
 }
@@ -235,6 +244,144 @@ export async function getPlaylistDetails(playlistId) {
     artist: `Playlist by ${data.firstname || 'JioSaavn'}`,
     image_url: (data.image || '').replace('150x150', '500x500'),
     songs
+  }
+}
+
+/**
+ * Gets details of an artist, including top songs and top albums.
+ */
+export async function getArtistDetails(artistId) {
+  const data = await fetchSaavn('artist.getArtistPageDetails', { artistId })
+  const topSongs = (data.topSongs || []).map(normalizeSong).filter(Boolean)
+  const topAlbums = (data.topAlbums || []).map(item => ({
+    id: item.albumid || item.id,
+    type: 'album',
+    title: (item.title || item.name || '').replace(/&amp;/g, '&'),
+    subtitle: item.subtitle || item.artist || '',
+    image_url: (item.image || '').replace('150x150', '500x500'),
+    year: item.year || ''
+  }))
+  return {
+    id: data.artistId || artistId,
+    name: data.name || '',
+    type: 'artist',
+    subtitle: data.subtitle || '',
+    image_url: (data.image || '').replace('150x150', '500x500'),
+    follower_count: data.follower_count || '',
+    topSongs,
+    topAlbums
+  }
+}
+
+/**
+ * Gets the list of top artists dynamically from JioSaavn.
+ */
+export async function getTopArtists() {
+  const data = await fetchSaavn('social.getTopArtists')
+  const results = data.top_artists || []
+  return results.map(item => ({
+    id: item.artistid || item.id,
+    type: 'artist',
+    name: item.name || '',
+    title: item.name || '',
+    image_url: (item.image || '').replace('150x150', '500x500'),
+    follower_count: item.follower_count || 0
+  }))
+}
+
+/**
+ * Gets details of a show (podcast) and its episodes.
+ */
+export async function getShowDetails(showId) {
+  try {
+    const homeData = await fetchSaavn('show.getHomePage', { show_id: showId })
+    const details = homeData.show_details || {}
+    const seasons = homeData.seasons || []
+    
+    let allEpisodes = []
+    
+    // Fetch episodes for all seasons in parallel
+    const episodePromises = seasons.map(async (season) => {
+      const seasonNum = season.season_number || 1
+      const numEpisodes = parseInt(season.more_info?.numEpisodes || '50', 10)
+      
+      try {
+        const episodesData = await fetchSaavn('show.getAllEpisodes', {
+          show_id: showId,
+          season_number: seasonNum,
+          n: numEpisodes,
+          sort_order: 'asc'
+        })
+        return Array.isArray(episodesData) ? episodesData : []
+      } catch (err) {
+        console.error(`Error fetching episodes for show ${showId} season ${seasonNum}:`, err)
+        return []
+      }
+    })
+    
+    const episodesResults = await Promise.all(episodePromises)
+    episodesResults.forEach(episodes => {
+      allEpisodes = allEpisodes.concat(episodes)
+    })
+    
+    // Normalize episodes into standard track structure
+    const songs = allEpisodes.map(ep => {
+      if (!ep) return null
+      
+      let title = ep.title || ep.song || 'Episode'
+      title = title.replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&quot;/g, '"')
+      
+      let artist = ep.primary_artists || ep.singers || details.title || 'Podcast Episode'
+      artist = artist.replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&quot;/g, '"')
+
+      let imageUrl = ep.image || details.image || null
+      if (imageUrl) {
+        imageUrl = imageUrl.replace('150x150', '500x500').replace('50x50', '500x500')
+      }
+
+      return {
+        id: `saavn_${ep.id}`,
+        rawId: ep.id,
+        title,
+        artist,
+        album: details.title || 'Podcast',
+        image_url: imageUrl,
+        audio_url: `/api/saavn/play/${ep.id}`,
+        duration: parseInt(ep.duration || '0', 10),
+        year: ep.year || '',
+        source: 'saavn',
+        is_favorite: false
+      }
+    }).filter(Boolean)
+
+    return {
+      id: details.id || showId,
+      title: (details.title || '').replace(/&amp;/g, '&'),
+      artist: details.partner_name || 'JioSaavn Podcast',
+      subtitle: details.header_desc || '',
+      image_url: (details.image || '').replace('150x150', '500x500'),
+      type: 'show',
+      songs
+    }
+  } catch (err) {
+    console.error(`Error in getShowDetails for show ${showId}:`, err)
+    throw err
+  }
+}
+
+/**
+ * Gets lyrics of a song from JioSaavn.
+ */
+export async function getSongLyrics(songId) {
+  try {
+    const data = await fetchSaavn('lyrics.getLyrics', { lyrics_id: songId })
+    return {
+      lyrics: data.lyrics || '',
+      copyright: data.lyrics_copyright || ''
+    }
+  } catch (err) {
+    console.error(`❌ Error fetching lyrics for song ${songId}:`, err)
+    return { lyrics: '', copyright: '' }
   }
 }
 

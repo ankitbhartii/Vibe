@@ -13,9 +13,100 @@ export function AudioProvider({ children }) {
   const [activeMenu, setActiveMenu] = useState('new_releases')
   const [customPlaylists, setCustomPlaylists] = useState([])
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null)
+  const [queue, setQueue] = useState([])
+  const [autoplayEnabled, setAutoplayEnabled] = useState(true)
+
+  const [history, setHistory] = useState([])
+  const [savedAlbums, setSavedAlbums] = useState([])
+  const [savedArtists, setSavedArtists] = useState([])
+  const [savedPodcasts, setSavedPodcasts] = useState([])
 
   const audioRef = useRef(null)
   const currentSongIdRef = useRef(null)
+
+  // Load library states on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const h = localStorage.getItem('vibe_history')
+        if (h) setHistory(JSON.parse(h))
+        
+        const al = localStorage.getItem('vibe_saved_albums')
+        if (al) setSavedAlbums(JSON.parse(al))
+        
+        const ar = localStorage.getItem('vibe_saved_artists')
+        if (ar) setSavedArtists(JSON.parse(ar))
+        
+        const po = localStorage.getItem('vibe_saved_podcasts')
+        if (po) setSavedPodcasts(JSON.parse(po))
+      } catch (e) {
+        console.error('Failed to load library from localStorage:', e)
+      }
+    }
+  }, [])
+
+  const addToHistory = useCallback((song) => {
+    if (!song) return
+    setHistory((prev) => {
+      const filtered = prev.filter(s => String(s.id) !== String(song.id))
+      const updated = [song, ...filtered].slice(0, 100)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('vibe_history', JSON.stringify(updated))
+      }
+      return updated
+    })
+  }, [])
+
+  const toggleSaveAlbum = (album) => {
+    if (!album) return
+    setSavedAlbums((prev) => {
+      const exists = prev.some(a => String(a.id) === String(album.id))
+      let updated
+      if (exists) {
+        updated = prev.filter(a => String(a.id) !== String(album.id))
+      } else {
+        updated = [album, ...prev]
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('vibe_saved_albums', JSON.stringify(updated))
+      }
+      return updated
+    })
+  }
+
+  const toggleFollowArtist = (artist) => {
+    if (!artist) return
+    setSavedArtists((prev) => {
+      const exists = prev.some(a => String(a.id) === String(artist.id))
+      let updated
+      if (exists) {
+        updated = prev.filter(a => String(a.id) !== String(artist.id))
+      } else {
+        updated = [artist, ...prev]
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('vibe_saved_artists', JSON.stringify(updated))
+      }
+      return updated
+    })
+  }
+
+  const toggleSubscribePodcast = (podcast) => {
+    if (!podcast) return
+    setSavedPodcasts((prev) => {
+      const exists = prev.some(p => String(p.id) === String(podcast.id))
+      let updated
+      if (exists) {
+        updated = prev.filter(p => String(p.id) !== String(podcast.id))
+      } else {
+        updated = [podcast, ...prev]
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('vibe_saved_podcasts', JSON.stringify(updated))
+      }
+      return updated
+    })
+  }
 
   // Create ONE Audio element for the lifetime of the app
   if (typeof window !== 'undefined' && !audioRef.current) {
@@ -72,6 +163,9 @@ export function AudioProvider({ children }) {
       return
     }
 
+    // Add to history
+    addToHistory(currentSong)
+
     // Load new src if it changed
     if (!alreadyLoaded) {
       audio.src = fullSrc
@@ -98,7 +192,129 @@ export function AudioProvider({ children }) {
         }, 1000)
       })
     }
-  }, [currentSong, isPlaying])
+  }, [currentSong, isPlaying, addToHistory])
+
+  // Autoplay Recommendations Engine
+  const triggerAutoplayRecommendations = useCallback(async () => {
+    if (!currentSong) return
+    try {
+      console.log(`📡 Autoplay: Fetching recommendations for "${currentSong.title}"`)
+      const res = await fetch(
+        `/api/saavn/recommendations?id=${currentSong.rawId || ''}&artist=${encodeURIComponent(currentSong.artist || '')}`
+      )
+      if (res.ok) {
+        const recs = await res.json()
+        if (Array.isArray(recs) && recs.length > 0) {
+          const firstRec = recs[0]
+          // The rest go to the queue
+          setQueue(recs.slice(1))
+          setCurrentSong(firstRec)
+          setIsPlaying(true)
+        }
+      }
+    } catch (err) {
+      console.error("❌ Autoplay failed to fetch recommendations:", err)
+    }
+  }, [currentSong])
+
+  // Queue Modifiers
+  const playNext = useCallback((song) => {
+    if (!song) return
+    setQueue(prev => {
+      const filtered = prev.filter(s => String(s.id) !== String(song.id))
+      return [song, ...filtered]
+    })
+  }, [])
+
+  const addToQueue = useCallback((song) => {
+    if (!song) return
+    setQueue(prev => {
+      const filtered = prev.filter(s => String(s.id) !== String(song.id))
+      return [...filtered, song]
+    })
+  }, [])
+
+  const removeFromQueue = useCallback((songId) => {
+    setQueue(prev => prev.filter(s => String(s.id) !== String(songId)))
+  }, [])
+
+  const clearQueue = useCallback(() => {
+    setQueue([])
+  }, [])
+
+  const handleNext = useCallback(() => {
+    // 1. Play first item from queue if available
+    if (queue.length > 0) {
+      const nextSong = queue[0]
+      setQueue(prev => prev.slice(1))
+      setCurrentSong(nextSong)
+      setIsPlaying(true)
+      return
+    }
+
+    // 2. Play from playlist
+    if (playlist.length > 0 && currentSong) {
+      const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
+      
+      if (idx === -1) {
+        if (autoplayEnabled) {
+          triggerAutoplayRecommendations()
+        } else if (playlist.length > 0) {
+          setCurrentSong(playlist[0])
+          setIsPlaying(true)
+        }
+        return
+      }
+
+      const isEnd = idx === playlist.length - 1
+      if (isEnd) {
+        if (autoplayEnabled) {
+          triggerAutoplayRecommendations()
+        } else {
+          setCurrentSong(playlist[0])
+          setIsPlaying(true)
+        }
+      } else {
+        const next = isShuffle
+          ? playlist[Math.floor(Math.random() * playlist.length)]
+          : playlist[idx + 1]
+        if (next) {
+          setCurrentSong(next)
+          setIsPlaying(true)
+        }
+      }
+    } else if (autoplayEnabled && currentSong) {
+      triggerAutoplayRecommendations()
+    }
+  }, [playlist, currentSong, isShuffle, queue, autoplayEnabled, triggerAutoplayRecommendations])
+
+  const handlePrev = useCallback(() => {
+    if (audioRef.current?.currentTime > 3) {
+      audioRef.current.currentTime = 0
+      return
+    }
+    if (!playlist.length || !currentSong) return
+    const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
+    if (idx === -1) {
+      audioRef.current.currentTime = 0
+      return
+    }
+    const prev = playlist[idx <= 0 ? playlist.length - 1 : idx - 1]
+    if (prev) {
+      setCurrentSong(prev)
+      setIsPlaying(true)
+    }
+  }, [playlist, currentSong])
+
+  const playTrack = (song, newPlaylist = []) => {
+    if (newPlaylist.length > 0) setPlaylist(newPlaylist)
+    if (currentSong && String(currentSong.id) === String(song.id)) {
+      setIsPlaying(p => !p)
+    } else {
+      setCurrentSong(song)
+      setIsPlaying(true)
+    }
+  }
 
   // Auto-advance when track ends
   useEffect(() => {
@@ -114,36 +330,9 @@ export function AudioProvider({ children }) {
     }
     audio.addEventListener('ended', onEnded)
     return () => audio.removeEventListener('ended', onEnded)
-  }, [playlist, currentSong, isShuffle, isRepeat])
+  }, [handleNext, isRepeat])
 
   useEffect(() => { fetchPlaylists() }, [])
-
-  const playTrack = (song, newPlaylist = []) => {
-    if (newPlaylist.length > 0) setPlaylist(newPlaylist)
-    if (currentSong && String(currentSong.id) === String(song.id)) {
-      setIsPlaying(p => !p)
-    } else {
-      setCurrentSong(song)
-      setIsPlaying(true)
-    }
-  }
-
-  const handleNext = () => {
-    if (!playlist.length || !currentSong) return
-    const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
-    const next = isShuffle
-      ? playlist[Math.floor(Math.random() * playlist.length)]
-      : playlist[(idx + 1) % playlist.length]
-    if (next) { setCurrentSong(next); setIsPlaying(true) }
-  }
-
-  const handlePrev = () => {
-    if (!playlist.length || !currentSong) return
-    if (audioRef.current?.currentTime > 3) { audioRef.current.currentTime = 0; return }
-    const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
-    const prev = playlist[idx <= 0 ? playlist.length - 1 : idx - 1]
-    if (prev) { setCurrentSong(prev); setIsPlaying(true) }
-  }
 
   const toggleFavorite = async (songOrId, currentVal) => {
     const isObj = typeof songOrId === 'object' && songOrId !== null
@@ -192,6 +381,10 @@ export function AudioProvider({ children }) {
       activeMenu, setActiveMenu, customPlaylists, setCustomPlaylists,
       selectedPlaylistId, setSelectedPlaylistId, createNewPlaylist, fetchPlaylists,
       preloadTrack,
+      history, savedAlbums, savedArtists, savedPodcasts,
+      toggleSaveAlbum, toggleFollowArtist, toggleSubscribePodcast,
+      queue, setQueue, autoplayEnabled, setAutoplayEnabled,
+      playNext, addToQueue, removeFromQueue, clearQueue
     }}>
       {children}
     </AudioContext.Provider>

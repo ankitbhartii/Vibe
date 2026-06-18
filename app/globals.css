@@ -1,4 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'Lato', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
+}
 
 :root {
   /* Monochrome Premium Dark Theme Variables */
@@ -21,7 +26,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Lato', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
     @apply antialiased selection:bg-[#1db954]/30 selection:text-white;
   }
 }
