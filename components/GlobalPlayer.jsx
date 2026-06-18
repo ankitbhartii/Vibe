@@ -20,11 +20,12 @@ export default function GlobalPlayer() {
   // Expandable player states
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeOverlayTab, setActiveOverlayTab] = useState('') // '' | 'lyrics' | 'xray' | 'queue'
-  const [lyricsData, setLyricsData] = useState({ lyrics: '', syncedLyrics: '', copyright: '' })
+  const [lyricsData, setLyricsData] = useState({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
   const [lyricsLoading, setLyricsLoading] = useState(false)
   const [parsedLyrics, setParsedLyrics] = useState([])
   const [currentLineIndex, setCurrentLineIndex] = useState(-1)
   const lyricsContainerRef = useRef(null)
+  const activeLineRef = useRef(null)
   const [recommendedTracks, setRecommendedTracks] = useState([])
   const [recsLoading, setRecsLoading] = useState(false)
 
@@ -176,24 +177,84 @@ export default function GlobalPlayer() {
     transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
   }
 
-  // Fetch lyrics dynamically when requested
+  // ── Lyrics Fetching: dual-source (JioSaavn API → LRCLIB enrichment) ──
   useEffect(() => {
-    if (activeOverlayTab === 'lyrics' && currentSong?.rawId) {
+    if (activeOverlayTab === 'lyrics' && currentSong) {
       const fetchLyrics = async () => {
         setLyricsLoading(true)
+        setLyricsData({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
         try {
-          const res = await fetch(
-            `/api/saavn/lyrics?id=${currentSong.rawId}&title=${encodeURIComponent(currentSong.title)}&artist=${encodeURIComponent(currentSong.artist)}`
-          )
+          // Primary: Server-side route (JioSaavn → LRCLIB fallback)
+          const params = new URLSearchParams()
+          if (currentSong.rawId) params.set('id', currentSong.rawId)
+          if (currentSong.title) params.set('title', currentSong.title)
+          if (currentSong.artist) params.set('artist', currentSong.artist)
+
+          const res = await fetch(`/api/saavn/lyrics?${params.toString()}`)
           if (res.ok) {
-            const data = await res.json()
-            setLyricsData(data)
+            const serverData = await res.json()
+
+            // If server returned synced lyrics, great — use them
+            if (serverData.syncedLyrics) {
+              setLyricsData({
+                ...serverData,
+                lyricsProvider: serverData.copyright?.includes('LRCLIB') ? 'LRCLIB' : 'JioSaavn'
+              })
+              setLyricsLoading(false)
+              return
+            }
+
+            // Secondary: Try LRCLIB directly for richer synced match (with album & duration)
+            if (currentSong.title && currentSong.artist) {
+              try {
+                const cleanTitle = currentSong.title.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim()
+                const cleanArtist = currentSong.artist.split(/,|\b&\b|\bvs\b|\bfeat\b/i)[0].trim()
+                const lrcParams = new URLSearchParams({
+                  artist_name: cleanArtist,
+                  track_name: cleanTitle,
+                })
+                if (currentSong.album) lrcParams.set('album_name', currentSong.album)
+                const lrcRes = await fetch(`https://lrclib.net/api/get?${lrcParams.toString()}`, {
+                  headers: { 'User-Agent': 'VibeMusicPlayer/1.0' }
+                })
+                if (lrcRes.ok) {
+                  const lrcData = await lrcRes.json()
+                  if (lrcData?.syncedLyrics) {
+                    setLyricsData({
+                      lyrics: lrcData.plainLyrics?.replace(/\r?\n/g, '<br>') || '',
+                      syncedLyrics: lrcData.syncedLyrics,
+                      copyright: lrcData.albumName ? `From: ${lrcData.albumName} · LRCLIB` : 'LRCLIB',
+                      lyricsProvider: 'LRCLIB'
+                    })
+                    setLyricsLoading(false)
+                    return
+                  } else if (lrcData?.plainLyrics) {
+                    setLyricsData({
+                      lyrics: lrcData.plainLyrics.replace(/\r?\n/g, '<br>'),
+                      syncedLyrics: '',
+                      copyright: 'LRCLIB',
+                      lyricsProvider: 'LRCLIB'
+                    })
+                    setLyricsLoading(false)
+                    return
+                  }
+                }
+              } catch (lrcErr) {
+                console.warn('LRCLIB direct fetch failed:', lrcErr)
+              }
+            }
+
+            // Use server data as final fallback (may be plain JioSaavn lyrics)
+            setLyricsData({
+              ...serverData,
+              lyricsProvider: serverData.lyrics ? 'JioSaavn' : ''
+            })
           } else {
-            setLyricsData({ lyrics: 'Lyrics not available for this song.', copyright: '' })
+            setLyricsData({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
           }
         } catch (err) {
-          console.error("Lyrics fetch error:", err)
-          setLyricsData({ lyrics: 'Failed to load lyrics.', copyright: '' })
+          console.error('Lyrics fetch error:', err)
+          setLyricsData({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
         } finally {
           setLyricsLoading(false)
         }
@@ -288,7 +349,6 @@ export default function GlobalPlayer() {
         const containerHeight = container.clientHeight
         const activeOffsetTop = activeEl.offsetTop
         const activeHeight = activeEl.clientHeight
-        
         container.scrollTo({
           top: activeOffsetTop - containerHeight / 2 + activeHeight / 2,
           behavior: 'smooth'
@@ -385,94 +445,171 @@ export default function GlobalPlayer() {
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0
   const isTidal = currentSong.id?.startsWith('tidal_')
 
+  // ── Monochrome-style Karaoke Lyrics Renderer ──
   const renderLyrics = () => {
+    // Loading skeleton with pulsing bars
     if (lyricsLoading) {
       return (
-        <div className="h-full flex items-center justify-center text-xs font-mono tracking-widest text-zinc-500 animate-pulse">
-          ⚡ LOADING LYRICS...
-        </div>
-      )
-    }
-    if (!lyricsData.lyrics) {
-      return (
-        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500 text-sm">
-          <span>😔 No lyrics found for this song.</span>
+        <div className="h-full flex flex-col items-center justify-center gap-4 px-8 py-10 select-none">
+          <div className="w-8 h-8 rounded-full border-2 border-zinc-700 border-t-white animate-spin mb-2" />
+          {[70, 55, 80, 45, 65, 50].map((w, i) => (
+            <div
+              key={i}
+              className="h-3 rounded-full bg-zinc-800 animate-pulse"
+              style={{ width: `${w}%`, animationDelay: `${i * 80}ms` }}
+            />
+          ))}
+          <p className="text-[10px] font-mono tracking-[0.25em] text-zinc-600 uppercase mt-2 animate-pulse">Loading Lyrics...</p>
         </div>
       )
     }
 
+    // Empty state
+    if (!lyricsData.lyrics && parsedLyrics.length === 0) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-5 select-none">
+          <div className="w-16 h-16 rounded-full bg-zinc-900/60 border border-zinc-800 flex items-center justify-center text-2xl opacity-60">
+            🎵
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <p className="text-sm font-bold text-zinc-400">No lyrics found</p>
+            <p className="text-[11px] text-zinc-600 font-mono">for {currentSong?.title}</p>
+          </div>
+        </div>
+      )
+    }
+
+    // Provider badge helper
+    const ProviderBadge = () => lyricsData.lyricsProvider ? (
+      <div className="flex items-center justify-center gap-1.5 pb-3 shrink-0">
+        <span className="text-[8px] font-mono font-bold tracking-[0.2em] uppercase text-zinc-600">
+          {parsedLyrics.length > 0 ? '⏱ Synced via' : '📄 Plain via'}
+        </span>
+        <span className="text-[8px] font-mono font-bold tracking-[0.2em] uppercase px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-500">
+          {lyricsData.lyricsProvider}
+        </span>
+      </div>
+    ) : null
+
+    // ── SYNCED KARAOKE MODE (monochrome-style) ──
     if (parsedLyrics.length > 0) {
       return (
-        <div className="flex flex-col h-full justify-between">
-          <div 
+        <div className="flex flex-col h-full overflow-hidden">
+          <div
             ref={lyricsContainerRef}
-            className="flex-1 overflow-y-auto px-6 py-28 flex flex-col gap-5 text-center max-h-[280px] md:max-h-[340px] scrollbar-none select-none"
-            style={{ 
-              WebkitMaskImage: 'linear-gradient(to bottom, transparent, white 25%, white 75%, transparent)',
-              maskImage: 'linear-gradient(to bottom, transparent, white 25%, white 75%, transparent)'
+            className="flex-1 overflow-y-auto scrollbar-none select-none"
+            style={{
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.6) 10%, black 22%, black 78%, rgba(0,0,0,0.6) 90%, transparent 100%)',
+              maskImage: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.6) 10%, black 22%, black 78%, rgba(0,0,0,0.6) 90%, transparent 100%)',
+              paddingTop: '40%',
+              paddingBottom: '40%',
             }}
           >
-            {parsedLyrics.map((line, idx) => {
-              const isActive = idx === currentLineIndex
-              const distance = Math.abs(idx - currentLineIndex)
-              
-              let opacityClass = 'text-zinc-550/20 scale-90'
-              if (currentLineIndex === -1) {
-                // If song hasn't reached first timestamp yet, fade all semi-normally
-                opacityClass = 'text-zinc-400/80 scale-100'
-              } else if (isActive) {
-                opacityClass = 'text-white font-extrabold scale-110 shadow-sm drop-shadow-[0_2px_8px_rgba(255,255,255,0.15)] text-lg md:text-xl'
-              } else if (distance === 1) {
-                opacityClass = 'text-zinc-300/60 scale-100 text-md md:text-lg'
-              } else if (distance === 2) {
-                opacityClass = 'text-zinc-400/30 scale-95 text-sm md:text-md'
-              } else if (distance === 3) {
-                opacityClass = 'text-zinc-500/15 scale-90 text-xs md:text-sm'
-              }
+            <div className="flex flex-col items-center gap-1 px-6">
+              {parsedLyrics.map((line, idx) => {
+                const isActive = idx === currentLineIndex
+                const distance = currentLineIndex === -1 ? 0 : idx - currentLineIndex
+                const absDist = Math.abs(distance)
 
+                // Compute scale and opacity based on distance from active line
+                let scale, opacity, fontSize, fontWeight, color, textShadow
+
+                if (currentLineIndex === -1) {
+                  // Pre-song: all lines visible at medium intensity
+                  scale = 1; opacity = 0.55; fontSize = '0.95rem'; fontWeight = '600'
+                  color = 'rgba(255,255,255,0.55)'; textShadow = 'none'
+                } else if (isActive) {
+                  scale = 1.08; opacity = 1; fontSize = '1.15rem'; fontWeight = '800'
+                  color = '#ffffff'; textShadow = '0 0 30px rgba(255,255,255,0.35), 0 2px 12px rgba(0,0,0,0.5)'
+                } else if (absDist === 1) {
+                  scale = 0.98; opacity = 0.55; fontSize = '1rem'; fontWeight = '600'
+                  color = 'rgba(255,255,255,0.55)'; textShadow = 'none'
+                } else if (absDist === 2) {
+                  scale = 0.95; opacity = 0.32; fontSize = '0.95rem'; fontWeight = '500'
+                  color = 'rgba(255,255,255,0.32)'; textShadow = 'none'
+                } else if (absDist === 3) {
+                  scale = 0.91; opacity = 0.18; fontSize = '0.9rem'; fontWeight = '500'
+                  color = 'rgba(255,255,255,0.18)'; textShadow = 'none'
+                } else {
+                  scale = 0.88; opacity = 0.1; fontSize = '0.85rem'; fontWeight = '400'
+                  color = 'rgba(255,255,255,0.08)'; textShadow = 'none'
+                }
+
+                return (
+                  <p
+                    key={idx}
+                    onClick={() => {
+                      const audio = audioRef?.current
+                      if (audio) {
+                        audio.currentTime = line.time
+                        setCurrentTime(line.time)
+                      }
+                    }}
+                    style={{
+                      transform: `scale(${scale})`,
+                      opacity,
+                      fontSize,
+                      fontWeight,
+                      color,
+                      textShadow,
+                      transition: 'all 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                      lineHeight: '1.5',
+                      padding: '0.35rem 0',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      letterSpacing: isActive ? '0.01em' : '0em',
+                      transformOrigin: 'center',
+                      willChange: 'transform, opacity',
+                    }}
+                  >
+                    {line.text}
+                  </p>
+                )
+              })}
+            </div>
+          </div>
+          <ProviderBadge />
+        </div>
+      )
+    }
+
+    // ── PLAIN LYRICS MODE (auto-scrolling) ──
+    const plainLines = lyricsData.lyrics.split(/<br\s*\/?>/i).filter(l => l.trim())
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <div
+          ref={lyricsContainerRef}
+          className="flex-1 overflow-y-auto custom-scrollbar select-none"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent, white 18%, white 82%, transparent)',
+            maskImage: 'linear-gradient(to bottom, transparent, white 18%, white 82%, transparent)',
+          }}
+        >
+          <div className="flex flex-col items-center gap-3.5 px-6 py-10 text-center">
+            {plainLines.map((line, idx) => {
+              const totalLines = plainLines.length
+              const progress = duration > 0 ? currentTime / duration : 0
+              const lineProgress = idx / totalLines
+              const distFromActive = Math.abs(lineProgress - progress)
+              const isNearActive = distFromActive < 0.08
               return (
-                <p 
-                  key={idx} 
-                  className={`transition-all duration-500 transform ease-out cursor-pointer origin-center leading-relaxed ${opacityClass}`}
-                  onClick={() => {
-                    const audio = audioRef?.current
-                    if (audio) {
-                      audio.currentTime = line.time
-                      setCurrentTime(line.time)
-                    }
+                <p
+                  key={idx}
+                  className="leading-relaxed transition-all duration-500"
+                  style={{
+                    color: isNearActive ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                    fontWeight: isNearActive ? '700' : '500',
+                    fontSize: isNearActive ? '1rem' : '0.9rem',
+                    transition: 'all 0.4s ease'
                   }}
                 >
-                  {line.text}
+                  {line}
                 </p>
               )
             })}
           </div>
-          {lyricsData.copyright && (
-            <p className="text-[9px] text-zinc-550 font-mono text-center pb-2 uppercase tracking-wider shrink-0">{lyricsData.copyright}</p>
-          )}
         </div>
-      )
-    }
-
-    // Fallback to plain lyrics with auto-scrolling and top/bottom mask fade
-    const plainLines = lyricsData.lyrics.split(/<br\s*\/?>/i)
-    return (
-      <div className="flex flex-col h-full justify-between">
-        <div 
-          ref={lyricsContainerRef}
-          className="flex-1 overflow-y-auto px-6 py-10 flex flex-col gap-4 text-center max-h-[280px] md:max-h-[340px] custom-scrollbar text-md font-semibold text-zinc-300 leading-relaxed select-none"
-          style={{ 
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent, white 15%, white 85%, transparent)',
-            maskImage: 'linear-gradient(to bottom, transparent, white 15%, white 85%, transparent)'
-          }}
-        >
-          {plainLines.map((line, idx) => (
-            <p key={idx} className="hover:text-white transition-colors duration-200">{line.trim()}</p>
-          ))}
-        </div>
-        {lyricsData.copyright && (
-          <p className="text-[9px] text-zinc-550 font-mono text-center pb-2 uppercase tracking-wider shrink-0">{lyricsData.copyright}</p>
-        )}
+        <ProviderBadge />
       </div>
     )
   }
@@ -731,13 +868,29 @@ export default function GlobalPlayer() {
           {/* MAIN PLAYER AREA (Album Cover / Lyrics / X-Ray) */}
           <div className="flex-1 flex flex-col items-center justify-center my-4 w-full max-w-md mx-auto relative min-h-[300px]">
             {activeOverlayTab === 'lyrics' ? (
-              <div className="w-full h-full min-h-[300px] bg-zinc-950/60 border border-zinc-800/40 rounded-3xl backdrop-blur-md flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300">
-                <div className="p-4 border-b border-zinc-900 flex justify-between items-center shrink-0">
-                  <span className="text-[10px] font-bold font-mono tracking-wider text-[#22c55e] uppercase">📄 Dynamic Lyrics</span>
-                  <button onClick={() => setActiveOverlayTab('')} className="text-zinc-500 hover:text-white text-xs px-1">✕ Close</button>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  {renderLyrics()}
+              <div className="w-full h-full min-h-[300px] rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 relative" style={{ background: 'rgba(8,8,10,0.75)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                {/* Blurred album art background for lyrics panel */}
+                {currentSong?.image_url && (
+                  <div
+                    className="absolute inset-0 bg-cover bg-center -z-10"
+                    style={{
+                      backgroundImage: `url(${currentSong.image_url})`,
+                      filter: 'blur(60px) brightness(0.12) saturate(1.4)',
+                      transform: 'scale(1.15)'
+                    }}
+                  />
+                )}
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="px-5 pt-4 pb-3 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#1db954] animate-pulse" />
+                      <span className="text-[10px] font-bold font-mono tracking-[0.2em] text-[#1db954] uppercase">Lyrics</span>
+                    </div>
+                    <button onClick={() => setActiveOverlayTab('')} className="text-zinc-600 hover:text-white text-[11px] font-mono transition-colors">✕</button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {renderLyrics()}
+                  </div>
                 </div>
               </div>
             ) : activeOverlayTab === 'xray' ? (
@@ -810,17 +963,25 @@ export default function GlobalPlayer() {
           {/* PLAYER CONTROLS PANEL */}
           <div className="w-full max-w-md mx-auto flex flex-col pb-6">
             
-            {/* AMZ TABS: Lyrics / X-Ray pills */}
-            <div className="flex gap-4 justify-center mb-6">
-              <button 
+            {/* TABS: Lyrics / X-Ray pills */}
+            <div className="flex gap-3 justify-center mb-6">
+              <button
                 onClick={() => setActiveOverlayTab(activeOverlayTab === 'lyrics' ? '' : 'lyrics')}
-                className={`py-1.5 px-6 rounded-full text-xs font-bold transition-all border ${activeOverlayTab === 'lyrics' ? 'bg-white text-black border-white shadow-lg' : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'}`}
+                className={`py-1.5 px-5 rounded-full text-xs font-bold transition-all duration-200 border ${
+                  activeOverlayTab === 'lyrics'
+                    ? 'bg-white text-black border-transparent shadow-lg scale-[1.03]'
+                    : 'bg-zinc-900/50 border-zinc-800/60 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                }`}
               >
-                Lyrics
+                {parsedLyrics.length > 0 ? '⏱ Synced Lyrics' : 'Lyrics'}
               </button>
-              <button 
+              <button
                 onClick={() => setActiveOverlayTab(activeOverlayTab === 'xray' ? '' : 'xray')}
-                className={`py-1.5 px-6 rounded-full text-xs font-bold transition-all border ${activeOverlayTab === 'xray' ? 'bg-white text-black border-white shadow-lg' : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'}`}
+                className={`py-1.5 px-5 rounded-full text-xs font-bold transition-all duration-200 border ${
+                  activeOverlayTab === 'xray'
+                    ? 'bg-white text-black border-transparent shadow-lg scale-[1.03]'
+                    : 'bg-zinc-900/50 border-zinc-800/60 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                }`}
               >
                 X-Ray
               </button>
