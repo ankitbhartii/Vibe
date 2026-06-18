@@ -293,73 +293,84 @@ export default function GlobalPlayer() {
     }
   }, [activeOverlayTab, currentSong?.rawId, currentSong?.title, currentSong?.artist])
 
-  // Parse synced lyrics when lyricsData changes
+  // Per-line refs map for accurate scroll targeting
+  const lineRefsMap = useRef({})
+
+  // Parse synced lyrics — robust LRC timestamp parser
   useEffect(() => {
     if (lyricsData?.syncedLyrics) {
       const lines = lyricsData.syncedLyrics.split(/\r?\n/)
       const parsed = []
-      // Match formats like [00:07.60] or [00:07:60] or [00:07]
-      const timeRegex = /\[(\d+):(\d+)(?:\.(\d+))?\]/
-      
+      // Handles [mm:ss.xx], [mm:ss.xxx], [mm:ss]
+      const timeRegex = /\[(\d+):(\d+)(?:[.:]([\d]+))?\]/
+
       lines.forEach(line => {
         const match = timeRegex.exec(line)
         if (match) {
           const minutes = parseInt(match[1], 10)
           const seconds = parseInt(match[2], 10)
-          const milliseconds = match[3] ? parseInt(match[3], 10) : 0
-          
-          // milliseconds could be 2 digits (e.g. 60 -> 600ms) or 3 digits
-          const msFactor = match[3] && match[3].length === 2 ? 10 : 1
-          const totalSeconds = minutes * 60 + seconds + (milliseconds * msFactor) / 1000
-          
+          const fracStr = match[3] || '0'
+          // Normalize fractional seconds to milliseconds regardless of digit count
+          const ms = parseFloat('0.' + fracStr) * 1000
+          const totalSeconds = minutes * 60 + seconds + ms / 1000
           const text = line.replace(timeRegex, '').trim()
-          if (text) {
-            parsed.push({ time: totalSeconds, text })
-          }
+          if (text) parsed.push({ time: totalSeconds, text })
         }
       })
-      
-      // Sort chronologically
+
       parsed.sort((a, b) => a.time - b.time)
+      lineRefsMap.current = {}
       setParsedLyrics(parsed)
     } else {
+      lineRefsMap.current = {}
       setParsedLyrics([])
     }
-    setCurrentLineIndex(-1)
+    // Don't reset currentLineIndex here — let the rAF loop handle it immediately
   }, [lyricsData])
 
-  // Sync lyrics highlight line with playback time
+  // ── rAF-based real-time sync (reads audio.currentTime directly, no state lag) ──
   useEffect(() => {
     if (parsedLyrics.length === 0) return
 
-    let activeIdx = -1
-    for (let i = 0; i < parsedLyrics.length; i++) {
-      if (currentTime >= parsedLyrics[i].time) {
-        activeIdx = i
-      } else {
-        break
-      }
-    }
-    
-    setCurrentLineIndex(activeIdx)
-  }, [currentTime, parsedLyrics])
+    let rafId
+    let lastIdx = -1
 
-  // Scroll active line into center of container
-  useEffect(() => {
-    if (currentLineIndex !== -1 && lyricsContainerRef.current) {
-      const container = lyricsContainerRef.current
-      const activeEl = container.children[currentLineIndex]
-      if (activeEl) {
-        const containerHeight = container.clientHeight
-        const activeOffsetTop = activeEl.offsetTop
-        const activeHeight = activeEl.clientHeight
-        container.scrollTo({
-          top: activeOffsetTop - containerHeight / 2 + activeHeight / 2,
-          behavior: 'smooth'
-        })
+    const tick = () => {
+      const audio = audioRef?.current
+      const t = audio ? audio.currentTime : 0
+
+      // Binary search for current line
+      let lo = 0, hi = parsedLyrics.length - 1, idx = -1
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1
+        if (parsedLyrics[mid].time <= t) { idx = mid; lo = mid + 1 }
+        else hi = mid - 1
       }
+
+      if (idx !== lastIdx) {
+        lastIdx = idx
+        setCurrentLineIndex(idx)
+
+        // Scroll active line into center using per-line ref
+        const el = lineRefsMap.current[idx]
+        const container = lyricsContainerRef.current
+        if (el && container) {
+          const containerH = container.clientHeight
+          const elOffsetTop = el.offsetTop
+          const elH = el.clientHeight
+          container.scrollTo({
+            top: elOffsetTop - containerH / 2 + elH / 2,
+            behavior: 'smooth'
+          })
+        }
+      }
+
+      rafId = requestAnimationFrame(tick)
     }
-  }, [currentLineIndex])
+
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [parsedLyrics, audioRef])
 
   // Auto-scroll plain lyrics when no synced lyrics are available
   useEffect(() => {
@@ -381,6 +392,7 @@ export default function GlobalPlayer() {
     setDuration(0)
     setParsedLyrics([])
     setCurrentLineIndex(-1)
+    lineRefsMap.current = {}
   }, [currentSong?.id])
 
   // Attach all audio event listeners once (not on song change — the audio element persists)
@@ -512,42 +524,38 @@ export default function GlobalPlayer() {
             <div className="flex flex-col items-center gap-1 px-6">
               {parsedLyrics.map((line, idx) => {
                 const isActive = idx === currentLineIndex
-                const distance = currentLineIndex === -1 ? 0 : idx - currentLineIndex
-                const absDist = Math.abs(distance)
+                const absDist = currentLineIndex === -1 ? 99 : Math.abs(idx - currentLineIndex)
 
-                // Compute scale and opacity based on distance from active line
-                let scale, opacity, fontSize, fontWeight, color, textShadow
-
+                // Monochrome-style distance-based styling
+                let scale, opacity, fontWeight, color, textShadow, fontSize
                 if (currentLineIndex === -1) {
-                  // Pre-song: all lines visible at medium intensity
-                  scale = 1; opacity = 0.55; fontSize = '0.95rem'; fontWeight = '600'
-                  color = 'rgba(255,255,255,0.55)'; textShadow = 'none'
+                  scale = 1; opacity = 0.5; fontWeight = '500'; fontSize = '0.95rem'
+                  color = 'rgba(255,255,255,0.5)'; textShadow = 'none'
                 } else if (isActive) {
-                  scale = 1.08; opacity = 1; fontSize = '1.15rem'; fontWeight = '800'
-                  color = '#ffffff'; textShadow = '0 0 30px rgba(255,255,255,0.35), 0 2px 12px rgba(0,0,0,0.5)'
+                  scale = 1.06; opacity = 1; fontWeight = '800'; fontSize = '1.12rem'
+                  color = '#ffffff'
+                  textShadow = '0 0 25px rgba(255,255,255,0.4), 0 1px 8px rgba(0,0,0,0.6)'
                 } else if (absDist === 1) {
-                  scale = 0.98; opacity = 0.55; fontSize = '1rem'; fontWeight = '600'
-                  color = 'rgba(255,255,255,0.55)'; textShadow = 'none'
+                  scale = 1; opacity = 0.6; fontWeight = '600'; fontSize = '1rem'
+                  color = 'rgba(255,255,255,0.6)'; textShadow = 'none'
                 } else if (absDist === 2) {
-                  scale = 0.95; opacity = 0.32; fontSize = '0.95rem'; fontWeight = '500'
-                  color = 'rgba(255,255,255,0.32)'; textShadow = 'none'
+                  scale = 0.96; opacity = 0.35; fontWeight = '500'; fontSize = '0.95rem'
+                  color = 'rgba(255,255,255,0.35)'; textShadow = 'none'
                 } else if (absDist === 3) {
-                  scale = 0.91; opacity = 0.18; fontSize = '0.9rem'; fontWeight = '500'
+                  scale = 0.92; opacity = 0.18; fontWeight = '500'; fontSize = '0.9rem'
                   color = 'rgba(255,255,255,0.18)'; textShadow = 'none'
                 } else {
-                  scale = 0.88; opacity = 0.1; fontSize = '0.85rem'; fontWeight = '400'
-                  color = 'rgba(255,255,255,0.08)'; textShadow = 'none'
+                  scale = 0.88; opacity = 0.07; fontWeight = '400'; fontSize = '0.85rem'
+                  color = 'rgba(255,255,255,0.07)'; textShadow = 'none'
                 }
 
                 return (
                   <p
                     key={idx}
+                    ref={el => { if (el) lineRefsMap.current[idx] = el }}
                     onClick={() => {
                       const audio = audioRef?.current
-                      if (audio) {
-                        audio.currentTime = line.time
-                        setCurrentTime(line.time)
-                      }
+                      if (audio) { audio.currentTime = line.time; setCurrentTime(line.time) }
                     }}
                     style={{
                       transform: `scale(${scale})`,
@@ -556,14 +564,14 @@ export default function GlobalPlayer() {
                       fontWeight,
                       color,
                       textShadow,
-                      transition: 'all 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
-                      lineHeight: '1.5',
-                      padding: '0.35rem 0',
+                      transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s cubic-bezier(0.4,0,0.2,1), color 0.4s ease, text-shadow 0.4s ease',
+                      lineHeight: '1.6',
+                      padding: '0.3rem 0',
                       cursor: 'pointer',
                       textAlign: 'center',
-                      letterSpacing: isActive ? '0.01em' : '0em',
-                      transformOrigin: 'center',
+                      transformOrigin: 'center center',
                       willChange: 'transform, opacity',
+                      userSelect: 'none',
                     }}
                   >
                     {line.text}
