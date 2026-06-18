@@ -9,8 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@lit/react": "^1.0.8",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
+    "@uimaxbai/am-lyrics": "^1.5.4",
     "cloudinary": "^2.10.0",
     "crypto-js": "^4.2.0",
     "framer-motion": "^12.40.0",

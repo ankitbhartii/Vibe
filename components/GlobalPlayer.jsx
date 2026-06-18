@@ -1,6 +1,15 @@
 'use client'
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useAudio } from '@/context/AudioContext'
+import dynamic from 'next/dynamic'
+
+const AmLyrics = dynamic(
+  () => {
+    import('@uimaxbai/am-lyrics/am-lyrics.js')
+    return import('@uimaxbai/am-lyrics/react').then((mod) => mod.AmLyrics)
+  },
+  { ssr: false }
+)
 
 export default function GlobalPlayer() {
   const { 
@@ -20,6 +29,7 @@ export default function GlobalPlayer() {
   // Expandable player states
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeOverlayTab, setActiveOverlayTab] = useState('') // '' | 'lyrics' | 'xray' | 'queue'
+  const [useAppleMusicComponent, setUseAppleMusicComponent] = useState(false)
   const [lyricsData, setLyricsData] = useState({ lyrics: '', syncedLyrics: '', copyright: '' })
   const [lyricsLoading, setLyricsLoading] = useState(false)
   const [parsedLyrics, setParsedLyrics] = useState([])
@@ -388,15 +398,51 @@ export default function GlobalPlayer() {
   const renderLyrics = () => {
     if (lyricsLoading) {
       return (
-        <div className="h-full flex items-center justify-center text-xs font-mono tracking-widest text-zinc-500 animate-pulse">
-          ⚡ LOADING LYRICS...
+        <div className="flex-1 flex items-center justify-center text-zinc-400 font-medium">
+          LOADING LYRICS...
         </div>
       )
     }
+
     if (!lyricsData.lyrics) {
       return (
-        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500 text-sm">
-          <span>😔 No lyrics found for this song.</span>
+        <div className="flex-1 flex items-center justify-center text-zinc-500 font-medium">
+          <span>No lyrics found for this song.</span>
+        </div>
+      )
+    }
+
+    if (useAppleMusicComponent) {
+      const songTitle = currentSong?.title || ''
+      const songArtist = currentSong?.artist || ''
+      return (
+        <div className="flex-1 w-full h-[280px] md:h-[340px] px-6 overflow-hidden rounded-xl bg-zinc-950/20">
+          <AmLyrics
+            songTitle={songTitle}
+            songArtist={songArtist}
+            query={`${songTitle} ${songArtist}`}
+            currentTime={currentTime * 1000}
+            onLineClick={(e) => {
+              const customEvent = e
+              const timestampMs = customEvent.detail.timestamp
+              const audio = audioRef?.current
+              if (audio) {
+                audio.currentTime = timestampMs / 1000
+                setCurrentTime(timestampMs / 1000)
+              }
+            }}
+            autoScroll={true}
+            highlightColor="#ffffff"
+            interpolate={true}
+            style={{ height: '100%', width: '100%' }}
+          />
+          <style dangerouslySetInnerHTML={{ __html: `
+            am-lyrics {
+              --am-lyrics-highlight-color: #ffffff !important;
+              --highlight-color: #ffffff !important;
+              font-family: inherit !important;
+            }
+          `}} />
         </div>
       )
     }
@@ -406,7 +452,7 @@ export default function GlobalPlayer() {
         <div className="flex flex-col h-full justify-between">
           <div 
             ref={lyricsContainerRef}
-            className="flex-1 overflow-y-auto px-6 py-28 flex flex-col gap-5 text-center max-h-[280px] md:max-h-[340px] scrollbar-none select-none"
+            className="flex-1 overflow-y-auto px-6 py-28 flex flex-col gap-6 text-center max-h-[280px] md:max-h-[340px] scrollbar-none select-none"
             style={{ 
               WebkitMaskImage: 'linear-gradient(to bottom, transparent, white 25%, white 75%, transparent)',
               maskImage: 'linear-gradient(to bottom, transparent, white 25%, white 75%, transparent)'
@@ -414,26 +460,26 @@ export default function GlobalPlayer() {
           >
             {parsedLyrics.map((line, idx) => {
               const isActive = idx === currentLineIndex
-              const distance = Math.abs(idx - currentLineIndex)
+              const isPast = idx < currentLineIndex
+              const isNextImmediate = idx === currentLineIndex + 1
               
-              let opacityClass = 'text-zinc-550/20 scale-90'
+              let animationClass = ''
               if (currentLineIndex === -1) {
-                // If song hasn't reached first timestamp yet, fade all semi-normally
-                opacityClass = 'text-zinc-400/80 scale-100'
+                animationClass = 'text-zinc-300/90 scale-100 blur-none'
               } else if (isActive) {
-                opacityClass = 'text-white font-extrabold scale-110 shadow-sm drop-shadow-[0_2px_8px_rgba(255,255,255,0.15)] text-lg md:text-xl'
-              } else if (distance === 1) {
-                opacityClass = 'text-zinc-300/60 scale-100 text-md md:text-lg'
-              } else if (distance === 2) {
-                opacityClass = 'text-zinc-400/30 scale-95 text-sm md:text-md'
-              } else if (distance === 3) {
-                opacityClass = 'text-zinc-500/15 scale-90 text-xs md:text-sm'
+                animationClass = 'text-white font-black scale-105 blur-none drop-shadow-[0_0_15px_rgba(255,255,255,0.45)] text-lg md:text-xl'
+              } else if (isNextImmediate) {
+                animationClass = 'text-zinc-300/75 scale-[0.98] blur-[0.6px] text-md md:text-lg'
+              } else if (isPast) {
+                animationClass = 'text-zinc-550/25 scale-[0.93] blur-[2px] text-sm md:text-md'
+              } else {
+                animationClass = 'text-zinc-400/40 scale-[0.95] blur-[1.2px] text-sm md:text-md'
               }
 
               return (
                 <p 
                   key={idx} 
-                  className={`transition-all duration-500 transform ease-out cursor-pointer origin-center leading-relaxed ${opacityClass}`}
+                  className={`transition-all duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] transform cursor-pointer origin-center leading-relaxed ${animationClass}`}
                   onClick={() => {
                     const audio = audioRef?.current
                     if (audio) {
@@ -454,7 +500,6 @@ export default function GlobalPlayer() {
       )
     }
 
-    // Fallback to plain lyrics with auto-scrolling and top/bottom mask fade
     const plainLines = lyricsData.lyrics.split(/<br\s*\/?>/i)
     return (
       <div className="flex flex-col h-full justify-between">
@@ -732,8 +777,16 @@ export default function GlobalPlayer() {
           <div className="flex-1 flex flex-col items-center justify-center my-4 w-full max-w-md mx-auto relative min-h-[300px]">
             {activeOverlayTab === 'lyrics' ? (
               <div className="w-full h-full min-h-[300px] bg-zinc-950/60 border border-zinc-800/40 rounded-3xl backdrop-blur-md flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300">
-                <div className="p-4 border-b border-zinc-900 flex justify-between items-center shrink-0">
-                  <span className="text-[10px] font-bold font-mono tracking-wider text-[#22c55e] uppercase">📄 Dynamic Lyrics</span>
+                <div className="p-4 border-b border-zinc-900 flex justify-between items-center shrink-0 gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold font-mono tracking-wider text-[#22c55e] uppercase">🔮 Synced Lyrics</span>
+                    <button 
+                      onClick={() => setUseAppleMusicComponent(!useAppleMusicComponent)}
+                      className="text-[9px] font-bold font-mono px-2 py-0.5 rounded-full border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-zinc-500 text-zinc-300 transition-all cursor-pointer"
+                    >
+                      {useAppleMusicComponent ? '🎛️ Standard View' : '✨ Apple Music View'}
+                    </button>
+                  </div>
                   <button onClick={() => setActiveOverlayTab('')} className="text-zinc-500 hover:text-white text-xs px-1">✕ Close</button>
                 </div>
                 <div className="flex-1 overflow-hidden">
