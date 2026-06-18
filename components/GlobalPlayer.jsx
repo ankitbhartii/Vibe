@@ -8,7 +8,8 @@ export default function GlobalPlayer() {
     isShuffle, setIsShuffle, isRepeat, setIsRepeat, handleNext, handlePrev,
     toggleFavorite,
     queue, setQueue, autoplayEnabled, setAutoplayEnabled,
-    playNext, addToQueue, removeFromQueue, clearQueue, playTrack, playlist
+    playNext, addToQueue, removeFromQueue, clearQueue, playTrack, playlist,
+    customPlaylists
   } = useAudio()
 
   const [currentTime, setCurrentTime] = useState(0)
@@ -28,6 +29,18 @@ export default function GlobalPlayer() {
   const activeLineRef = useRef(null)
   const [recommendedTracks, setRecommendedTracks] = useState([])
   const [recsLoading, setRecsLoading] = useState(false)
+
+  // Action panel states
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showCastMenu, setShowCastMenu] = useState(false)
+  const [castActive, setCastActive] = useState(false)
+  const [sleepTimerMins, setSleepTimerMins] = useState(null)
+  const [sleepTimerLeft, setSleepTimerLeft] = useState(null)
+  const sleepTimerRef = useRef(null)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1)
+  const [showSpeedPicker, setShowSpeedPicker] = useState(false)
+  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false)
+  const [shareToast, setShareToast] = useState('')
 
   // Album cover slider/swipe carousel states
   const [touchStartX, setTouchStartX] = useState(null)
@@ -460,6 +473,100 @@ export default function GlobalPlayer() {
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0
   const isTidal = currentSong.id?.startsWith('tidal_')
+  const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
+
+  // Playback speed sync
+  useEffect(() => {
+    if (audioRef?.current) audioRef.current.playbackRate = playbackSpeed
+  }, [playbackSpeed, audioRef])
+
+  // Sleep timer countdown
+  useEffect(() => {
+    if (sleepTimerMins === null) { setSleepTimerLeft(null); return }
+    let secs = sleepTimerMins * 60
+    setSleepTimerLeft(secs)
+    sleepTimerRef.current = setInterval(() => {
+      secs--
+      setSleepTimerLeft(secs)
+      if (secs <= 0) {
+        clearInterval(sleepTimerRef.current)
+        setIsPlaying(false)
+        setSleepTimerMins(null)
+        setSleepTimerLeft(null)
+      }
+    }, 1000)
+    return () => clearInterval(sleepTimerRef.current)
+  }, [sleepTimerMins, setIsPlaying])
+
+  // Share handler
+  const handleShare = useCallback(async () => {
+    const text = `🎵 ${currentSong?.title} by ${currentSong?.artist} — Vibe`
+    const url = window.location.href
+    if (navigator.share) {
+      try { await navigator.share({ title: currentSong?.title, text, url }) } catch (_) {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${text}\n${url}`)
+        setShareToast('🔗 Link copied to clipboard!')
+        setTimeout(() => setShareToast(''), 2500)
+      } catch (_) {
+        setShareToast('Could not share')
+        setTimeout(() => setShareToast(''), 2500)
+      }
+    }
+  }, [currentSong])
+
+  // Cast / PiP handler
+  const handleCast = useCallback(async () => {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture().catch(() => {})
+      setCastActive(false)
+      return
+    }
+    if ('documentPictureInPicture' in window) {
+      try {
+        const pip = await window.documentPictureInPicture.requestWindow({ width: 300, height: 180 })
+        setCastActive(true)
+        const pipDoc = pip.document
+        pipDoc.body.style.cssText = 'margin:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;'
+        pipDoc.body.innerHTML = `
+          <div style="text-align:center;color:#fff;padding:16px;">
+            <img src="${currentSong?.image_url}" style="width:100px;height:100px;border-radius:12px;object-fit:cover;margin-bottom:10px;box-shadow:0 8px 24px rgba(0,0,0,0.8);">
+            <p style="font-size:13px;font-weight:700;margin:0 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px">${currentSong?.title}</p>
+            <p style="font-size:10px;color:#aaa;margin:0;">${currentSong?.artist}</p>
+          </div>
+        `
+        pip.addEventListener('pagehide', () => setCastActive(false))
+        setShowCastMenu(false)
+        return
+      } catch (_) {}
+    }
+    setShowCastMenu(v => !v)
+  }, [currentSong])
+
+  // Add to playlist
+  const handleAddToPlaylist = useCallback(async (playlistId) => {
+    if (!currentSong) return
+    try {
+      const { createClient } = await import('@/utils/supabase/client')
+      const supabase = createClient()
+      await supabase.from('playlist_songs').upsert([{
+        playlist_id: playlistId,
+        song_id: currentSong.id,
+        title: currentSong.title,
+        artist: currentSong.artist,
+        image_url: currentSong.image_url,
+        audio_url: currentSong.audio_url
+      }], { onConflict: 'playlist_id,song_id' })
+      setShareToast('✅ Added to playlist!')
+    } catch (err) {
+      console.error('Playlist add error:', err)
+      setShareToast('Failed to add to playlist')
+    }
+    setTimeout(() => setShareToast(''), 2500)
+    setShowPlaylistPicker(false)
+    setShowMoreMenu(false)
+  }, [currentSong])
 
   // ── Monochrome-style Karaoke Lyrics Renderer ──
   const renderLyrics = () => {
@@ -1060,29 +1167,284 @@ export default function GlobalPlayer() {
             </div>
 
             {/* BOTTOM UTILITY ACTION ROW */}
-            <div className="flex justify-between items-center px-4 text-zinc-400">
-              <button className="w-10 h-10 rounded-full bg-zinc-900/40 hover:bg-zinc-800 hover:text-white flex items-center justify-center transition" title="Share">
-                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.707 3.354a2.5 2.5 0 0 1 0 1.036l6.707 3.354A2.5 2.5 0 1 1 11 13.5a2.5 2.5 0 0 1-.603-1.628l-6.707-3.354a2.5 2.5 0 0 1 0-1.036l6.707-3.354A2.5 2.5 0 0 1 11 2.5zM3.5 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"></path></svg>
-              </button>
-              
-              <button className="w-10 h-10 rounded-full bg-zinc-900/40 hover:bg-zinc-800 hover:text-white flex items-center justify-center transition" title="Cast to Device">
-                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.5a.5.5 0 0 0 0-1H2a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.5a.5.5 0 0 0 0 1H14a1 1 0 0 1 1 1v6zM0 13a1 1 0 0 1 1-1 .5.5 0 0 0 0-1 2 2 0 0 0-2 2zm0-3a3 3 0 0 1 3-3 .5.5 0 0 0 0-1 4 4 0 0 0-4 4zm0-3a5 5 0 0 1 5-5 .5.5 0 0 0 0-1 6 6 0 0 0-6 6z"></path></svg>
+            <div className="flex justify-between items-center px-4 text-zinc-400 relative">
+
+              {/* SHARE */}
+              <button
+                onClick={handleShare}
+                className="w-10 h-10 rounded-full bg-zinc-900/40 hover:bg-zinc-800 hover:text-white flex items-center justify-center transition active:scale-90"
+                title="Share"
+              >
+                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.707 3.354a2.5 2.5 0 0 1 0 1.036l6.707 3.354A2.5 2.5 0 1 1 11 13.5a2.5 2.5 0 0 1-.603-1.628l-6.707-3.354a2.5 2.5 0 0 1 0-1.036l6.707-3.354A2.5 2.5 0 0 1 11 2.5zM3.5 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>
               </button>
 
-              <button 
+              {/* CAST */}
+              <button
+                onClick={handleCast}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 ${
+                  castActive ? 'bg-[#1db954] text-black shadow-lg' : 'bg-zinc-900/40 hover:bg-zinc-800 hover:text-white text-zinc-400'
+                }`}
+                title={castActive ? 'Stop Casting' : 'Cast / Screen Share'}
+              >
+                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M1 18v3h3a3 3 0 0 0-3-3zm0-4v2a5 5 0 0 1 5 5h2a7 7 0 0 0-7-7zm0-4v2a9 9 0 0 1 9 9h2A11 11 0 0 0 1 10zm20-6H3C1.9 4 1 4.9 1 6v3h2V6h18v12h-7v2h7c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/>
+                </svg>
+              </button>
+
+              {/* QUEUE */}
+              <button
                 onClick={() => setActiveOverlayTab(activeOverlayTab === 'queue' ? '' : 'queue')}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition ${activeOverlayTab === 'queue' ? 'bg-[#1db954] text-black shadow-lg hover:bg-[#1ed760]' : 'bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition ${
+                  activeOverlayTab === 'queue' ? 'bg-[#1db954] text-black shadow-lg hover:bg-[#1ed760]' : 'bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                }`}
                 title="Up Next Queue"
               >
-                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2z"></path><path d="M12 3v10h-1V3h1z"></path><path d="M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V5l-5 1V2.82zM1 2.5A.5.5 0 0 1 1.5 2h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"></path></svg>
+                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2z"/><path d="M12 3v10h-1V3h1z"/><path d="M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V5l-5 1V2.82zM1 2.5A.5.5 0 0 1 1.5 2h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/></svg>
               </button>
 
-              <button className="w-10 h-10 rounded-full bg-zinc-900/40 hover:bg-zinc-800 hover:text-white flex items-center justify-center transition" title="More Options">
-                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"></path></svg>
+              {/* THREE DOTS */}
+              <button
+                onClick={() => { setShowMoreMenu(v => !v); setShowCastMenu(false); setShowSpeedPicker(false); setShowPlaylistPicker(false) }}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 ${
+                  showMoreMenu ? 'bg-white text-black' : 'bg-zinc-900/40 hover:bg-zinc-800 hover:text-white text-zinc-400'
+                }`}
+                title="More Options"
+              >
+                <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>
               </button>
+
+              {/* Sleep timer badge */}
+              {sleepTimerLeft !== null && (
+                <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-amber-400 px-3 py-1 rounded-full shadow-lg whitespace-nowrap">
+                  ⏲ Sleep in {Math.floor(sleepTimerLeft / 60)}:{String(sleepTimerLeft % 60).padStart(2, '0')}
+                </div>
+              )}
             </div>
 
+            {/* ── CAST MENU ── */}
+            {showCastMenu && (
+              <div className="absolute bottom-20 left-3 right-3 bg-zinc-900/97 border border-zinc-700/50 rounded-2xl shadow-2xl backdrop-blur-xl p-4 z-50">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-[10px] font-bold font-mono tracking-widest text-zinc-400 uppercase">Cast / Output</span>
+                  <button onClick={() => setShowCastMenu(false)} className="text-zinc-500 hover:text-white text-xs">✕</button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+                        const video = document.createElement('video')
+                        video.srcObject = stream
+                        video.muted = true
+                        document.body.appendChild(video)
+                        video.style.cssText = 'position:fixed;top:-9999px;width:1px;height:1px;'
+                        await video.play()
+                        if (video.requestPictureInPicture) {
+                          await video.requestPictureInPicture()
+                          setCastActive(true)
+                          video.addEventListener('leavepictureinpicture', () => {
+                            stream.getTracks().forEach(t => t.stop())
+                            video.remove()
+                            setCastActive(false)
+                          })
+                        }
+                        setShowCastMenu(false)
+                      } catch (err) { console.warn('Screen cast err:', err) }
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/60 hover:bg-zinc-700/60 transition text-left w-full"
+                  >
+                    <span className="text-xl">🖥️</span>
+                    <div>
+                      <p className="text-[12px] font-bold text-white">Cast This Screen</p>
+                      <p className="text-[10px] text-zinc-500">Share tab to display or TV</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShareToast('🔊 Use OS volume mixer or Bluetooth to route audio')
+                      setTimeout(() => setShareToast(''), 3500)
+                      setShowCastMenu(false)
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/60 hover:bg-zinc-700/60 transition text-left w-full"
+                  >
+                    <span className="text-xl">🔊</span>
+                    <div>
+                      <p className="text-[12px] font-bold text-white">System Audio Output</p>
+                      <p className="text-[10px] text-zinc-500">Bluetooth speakers / headphones</p>
+                    </div>
+                  </button>
+                  {castActive && (
+                    <button
+                      onClick={() => { document.exitPictureInPicture?.().catch(()=>{}); setCastActive(false); setShowCastMenu(false) }}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-red-900/30 border border-red-800/40 hover:bg-red-900/50 transition text-left w-full"
+                    >
+                      <span className="text-xl">⏹️</span>
+                      <div>
+                        <p className="text-[12px] font-bold text-red-400">Stop Casting</p>
+                        <p className="text-[10px] text-zinc-500">End current cast session</p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── MORE OPTIONS SHEET (main) ── */}
+            {showMoreMenu && !showPlaylistPicker && !showSpeedPicker && (
+              <div className="absolute bottom-16 left-0 right-0 bg-[#0f0f12]/97 border-t border-zinc-800/50 rounded-t-3xl shadow-2xl backdrop-blur-2xl z-50 max-h-[70vh] overflow-y-auto">
+                <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-zinc-700" /></div>
+                {/* Song header */}
+                <div className="flex items-center gap-3 px-5 py-3 border-b border-zinc-800/40">
+                  {currentSong?.image_url && <img src={currentSong.image_url} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-bold text-white truncate">{currentSong?.title}</p>
+                    <p className="text-[11px] text-zinc-500 truncate">{currentSong?.artist}</p>
+                  </div>
+                  <button onClick={() => setShowMoreMenu(false)} className="text-zinc-500 hover:text-white text-sm ml-auto px-2">✕</button>
+                </div>
+
+                {/* Quick actions */}
+                <div className="flex justify-around px-4 py-4 border-b border-zinc-800/30">
+                  {[
+                    { icon: currentSong?.is_favorite ? '❤️' : '🤍', label: currentSong?.is_favorite ? 'Liked' : 'Like', action: () => { toggleFavorite?.(currentSong, currentSong?.is_favorite); setShowMoreMenu(false) } },
+                    { icon: '⏭️', label: 'Play Next', action: () => { playNext?.(currentSong); setShowMoreMenu(false); setShareToast('Playing next!'); setTimeout(() => setShareToast(''), 2000) } },
+                    { icon: '➕', label: 'Add Queue', action: () => { addToQueue?.(currentSong); setShowMoreMenu(false); setShareToast('Added to queue!'); setTimeout(() => setShareToast(''), 2000) } },
+                    { icon: '📤', label: 'Share', action: () => { handleShare(); setShowMoreMenu(false) } },
+                  ].map(({ icon, label, action }) => (
+                    <button key={label} onClick={action} className="flex flex-col items-center gap-1.5 group">
+                      <span className="w-12 h-12 rounded-2xl bg-zinc-800/80 flex items-center justify-center text-xl group-hover:bg-zinc-700 transition">{icon}</span>
+                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wide">{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* PLAYLIST section */}
+                <div className="flex flex-col">
+                  <p className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest px-5 pt-4 pb-1">Playlist</p>
+                  <button onClick={() => setShowPlaylistPicker(true)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                    <span className="text-base w-6 text-center">📝</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">Add to Playlist</span>
+                    <span className="ml-auto text-zinc-600 text-sm">›</span>
+                  </button>
+
+                  {/* PLAYBACK section */}
+                  <p className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest px-5 pt-4 pb-1">Playback</p>
+                  <button onClick={() => setShowSpeedPicker(true)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                    <span className="text-base w-6 text-center">⚡</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">Playback Speed</span>
+                    <span className="ml-auto text-[11px] font-mono text-[#1db954]">{playbackSpeed}x</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (sleepTimerMins !== null) {
+                        clearInterval(sleepTimerRef.current)
+                        setSleepTimerMins(null); setSleepTimerLeft(null)
+                        setShareToast('⏹ Sleep timer cancelled')
+                      } else {
+                        setSleepTimerMins(30)
+                        setShareToast('⏲ Sleep timer set: 30 min')
+                      }
+                      setTimeout(() => setShareToast(''), 2500)
+                      setShowMoreMenu(false)
+                    }}
+                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full"
+                  >
+                    <span className="text-base w-6 text-center">⏲</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">{sleepTimerMins !== null ? 'Cancel Sleep Timer' : 'Sleep Timer (30 min)'}</span>
+                    {sleepTimerLeft !== null && <span className="ml-auto text-[11px] font-mono text-amber-400">{Math.floor(sleepTimerLeft/60)}:{String(sleepTimerLeft%60).padStart(2,'0')}</span>}
+                  </button>
+                  <button onClick={() => { setIsShuffle(!isShuffle); setShowMoreMenu(false) }} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                    <span className="text-base w-6 text-center">🔀</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">Shuffle</span>
+                    <span className={`ml-auto text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isShuffle ? 'bg-[#1db954]/20 text-[#1db954]' : 'bg-zinc-800 text-zinc-500'}`}>{isShuffle ? 'ON' : 'OFF'}</span>
+                  </button>
+                  <button onClick={() => { setIsRepeat(!isRepeat); setShowMoreMenu(false) }} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                    <span className="text-base w-6 text-center">🔁</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">Repeat</span>
+                    <span className={`ml-auto text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isRepeat ? 'bg-[#1db954]/20 text-[#1db954]' : 'bg-zinc-800 text-zinc-500'}`}>{isRepeat ? 'ON' : 'OFF'}</span>
+                  </button>
+
+                  {/* TRACK section */}
+                  <p className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest px-5 pt-4 pb-1">Track</p>
+                  <button onClick={() => { setActiveOverlayTab('xray'); setShowMoreMenu(false) }} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                    <span className="text-base w-6 text-center">🔍</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">Track Details (X-Ray)</span>
+                  </button>
+                  {currentSong?.audio_url && (
+                    <a href={currentSong.audio_url} download={`${currentSong.title} - ${currentSong.artist}.m4a`} onClick={() => setShowMoreMenu(false)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                      <span className="text-base w-6 text-center">⬇️</span>
+                      <span className="text-[13px] text-zinc-200 font-medium">Download Track</span>
+                    </a>
+                  )}
+
+                  {/* ARTIST section */}
+                  <p className="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest px-5 pt-4 pb-1">Artist</p>
+                  <button onClick={() => { window.open(`https://open.spotify.com/search/${encodeURIComponent(currentSong?.artist?.split(',')[0]?.trim())}`, '_blank'); setShowMoreMenu(false) }} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                    <span className="text-base w-6 text-center">👤</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">Go to Artist on Spotify</span>
+                    <span className="ml-auto text-zinc-600 text-sm">›</span>
+                  </button>
+                  <button onClick={() => { window.open(`https://www.google.com/search?q=${encodeURIComponent(currentSong?.title + ' ' + currentSong?.artist + ' lyrics')}`, '_blank'); setShowMoreMenu(false) }} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                    <span className="text-base w-6 text-center">🌐</span>
+                    <span className="text-[13px] text-zinc-200 font-medium">Search Lyrics on Web</span>
+                    <span className="ml-auto text-zinc-600 text-sm">›</span>
+                  </button>
+                  <div className="h-8" />
+                </div>
+              </div>
+            )}
+
+            {/* ── PLAYLIST PICKER ── */}
+            {showMoreMenu && showPlaylistPicker && (
+              <div className="absolute bottom-16 left-0 right-0 bg-[#0f0f12]/97 border-t border-zinc-800/50 rounded-t-3xl shadow-2xl backdrop-blur-2xl z-50 max-h-[70vh] overflow-y-auto">
+                <div className="flex justify-between items-center px-5 py-4 border-b border-zinc-800/40">
+                  <button onClick={() => setShowPlaylistPicker(false)} className="text-zinc-400 hover:text-white text-sm">‹ Back</button>
+                  <span className="text-[11px] font-mono font-bold text-zinc-400 uppercase tracking-widest">Add to Playlist</span>
+                  <button onClick={() => { setShowPlaylistPicker(false); setShowMoreMenu(false) }} className="text-zinc-500 hover:text-white text-xs">✕</button>
+                </div>
+                <div className="flex flex-col py-2">
+                  {!(customPlaylists?.length) ? (
+                    <div className="px-5 py-10 text-center text-zinc-500 text-sm">No playlists yet.<br/>Create one from the sidebar first.</div>
+                  ) : (customPlaylists || []).map(pl => (
+                    <button key={pl.id} onClick={() => handleAddToPlaylist(pl.id)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
+                      <span className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-base shrink-0">📝</span>
+                      <span className="text-[13px] text-zinc-200 font-medium truncate">{pl.name}</span>
+                    </button>
+                  ))}
+                  <div className="h-8" />
+                </div>
+              </div>
+            )}
+
+            {/* ── SPEED PICKER ── */}
+            {showMoreMenu && showSpeedPicker && (
+              <div className="absolute bottom-16 left-0 right-0 bg-[#0f0f12]/97 border-t border-zinc-800/50 rounded-t-3xl shadow-2xl backdrop-blur-2xl z-50">
+                <div className="flex justify-between items-center px-5 py-4 border-b border-zinc-800/40">
+                  <button onClick={() => setShowSpeedPicker(false)} className="text-zinc-400 hover:text-white text-sm">‹ Back</button>
+                  <span className="text-[11px] font-mono font-bold text-zinc-400 uppercase tracking-widest">Playback Speed</span>
+                  <button onClick={() => { setShowSpeedPicker(false); setShowMoreMenu(false) }} className="text-zinc-500 hover:text-white text-xs">✕</button>
+                </div>
+                <div className="flex flex-col py-2">
+                  {SPEEDS.map(s => (
+                    <button key={s} onClick={() => { setPlaybackSpeed(s); setShowSpeedPicker(false); setShowMoreMenu(false); setShareToast(`Speed: ${s}x`); setTimeout(() => setShareToast(''), 1800) }}
+                      className={`flex items-center justify-between px-5 py-4 hover:bg-zinc-800/40 transition ${playbackSpeed === s ? 'text-[#1db954]' : 'text-zinc-200'}`}>
+                      <span className="text-[14px] font-medium">{s === 1 ? 'Normal (1x)' : `${s}x`}</span>
+                      {playbackSpeed === s && <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>}
+                    </button>
+                  ))}
+                  <div className="h-8" />
+                </div>
+              </div>
+            )}
+
           </div>
+        </div>
+      )}
+
+      {/* TOAST */}
+      {shareToast && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[200] bg-zinc-900 border border-zinc-700/60 text-white text-[12px] font-semibold px-5 py-2.5 rounded-full shadow-2xl whitespace-nowrap">
+          {shareToast}
         </div>
       )}
     </>
