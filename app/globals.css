@@ -1,38 +1,62 @@
-@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Lato', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
 }
 
 :root {
-  /* Monochrome Premium Dark Theme Variables */
-  --background: #050505;
-  --foreground: #f4f4f5;
+  /* Apple Music Premium Dark Theme Variables */
+  --background: #000000;
+  --foreground: #f5f5f7;
 
   /* UI Cards and Panels */
-  --card: rgba(18, 18, 18, 0.6);
-  --card-hover: rgba(30, 30, 30, 0.8);
-  --border: rgba(255, 255, 255, 0.08);
+  --card: rgba(28, 28, 30, 0.72);
+  --card-hover: rgba(44, 44, 46, 0.85);
+  --border: rgba(255, 255, 255, 0.06);
 
   /* Brand Accents */
-  --primary: #1db954; /* Clean Spotify/Vibe green */
-  --primary-glow: rgba(29, 185, 84, 0.15);
-  --secondary: #27272a;
-  --muted-foreground: #a1a1aa;
+  --primary: #fa2d48;
+  --primary-glow: rgba(250, 45, 72, 0.15);
+  --secondary: #1c1c1e;
+  --muted-foreground: #98989d;
+
+  /* Apple Spring Physics */
+  --apple-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --apple-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --apple-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --apple-decel: cubic-bezier(0, 0, 0.2, 1);
+  --apple-accel: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: 'Lato', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
-    @apply antialiased selection:bg-[#1db954]/30 selection:text-white;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    @apply antialiased selection:bg-[#fa2d48]/20 selection:text-white;
+  }
+
+  * {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  img, video {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 }
 
 @layer utilities {
-  /* Hide scrollbars for clean filter tray horizontal touch swiping */
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
@@ -41,26 +65,24 @@
     scrollbar-width: none;
   }
 
-  /* Monochrome Premium Glassmorphic Card */
   .glass-card {
-    background: var(--card);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    background: rgba(28, 28, 30, 0.72);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.5s var(--apple-ease);
   }
 
   .glass-card:hover {
-    background: var(--card-hover);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(44, 44, 46, 0.85);
+    border-color: rgba(255, 255, 255, 0.1);
     transform: translateY(-2px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   }
 
-  /* Custom Premium Web Player Scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   
   .custom-scrollbar::-webkit-scrollbar-track {
@@ -68,34 +90,76 @@
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.06);
     border-radius: 9999px;
+    transition: background-color 0.3s var(--apple-ease);
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.15);
   }
 
-  /* Glow accents */
   .glow-text {
-    text-shadow: 0 0 15px rgba(29, 185, 84, 0.3);
+    text-shadow: 0 0 20px rgba(250, 45, 72, 0.25);
   }
 
   .glow-border {
-    box-shadow: 0 0 20px rgba(29, 185, 84, 0.1);
+    box-shadow: 0 0 25px rgba(250, 45, 72, 0.08);
+  }
+
+  .gpu-accel {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .apple-card-hover {
+    transition: transform 0.5s var(--apple-ease), box-shadow 0.5s var(--apple-ease);
+  }
+
+  .apple-card-hover:hover {
+    transform: translateY(-6px) scale(1.015);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  .apple-card-hover:active {
+    transform: translateY(-2px) scale(0.98);
+    transition-duration: 0.15s;
+  }
+
+  .apple-press {
+    transition: transform 0.2s var(--apple-spring);
+  }
+
+  .apple-press:hover {
+    transform: scale(1.05);
+  }
+
+  .apple-press:active {
+    transform: scale(0.92);
+    transition-duration: 0.1s;
+  }
+
+  .img-reveal {
+    opacity: 0;
+    transition: opacity 0.6s var(--apple-ease);
+  }
+
+  .img-reveal.loaded {
+    opacity: 1;
   }
 }
 
-/* ================= HARDWARE ACCELERATED UI KINETIC ANIMATIONS ================= */
+/* ================= APPLE MUSIC KEYFRAME ANIMATIONS ================= */
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -110,20 +174,153 @@
   }
 }
 
-/* Apply fluid micro-interactions with ease-out cubic transitions */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.92);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes springBounce {
+  0% { transform: translateY(100%) scale(0.9); opacity: 0; }
+  50% { transform: translateY(-3%) scale(1.01); opacity: 1; }
+  75% { transform: translateY(1%); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); opacity: 0.5; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.9); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 45, 72, 0.4); }
+  50% { box-shadow: 0 0 20px 6px rgba(250, 45, 72, 0.15); }
+}
+
+@keyframes expandPlayer {
+  from { opacity: 0; transform: scale(0.92); filter: blur(6px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
 .animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.55s var(--apple-ease) both;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideUp 0.45s var(--apple-spring) both;
 }
 
-/* Custom form image file selector inputs formatting bypass */
+.animate-scale-in {
+  animation: scaleIn 0.4s var(--apple-spring) both;
+}
+
+.animate-float-in {
+  animation: floatIn 0.65s var(--apple-ease) both;
+}
+
+.animate-spring-bounce {
+  animation: springBounce 0.7s var(--apple-ease) both;
+}
+
+.animate-sheet-up {
+  animation: sheetSlideUp 0.45s var(--apple-spring) both;
+}
+
+.animate-toast-in {
+  animation: toastIn 0.4s var(--apple-spring) both;
+}
+
+.animate-expand-player {
+  animation: expandPlayer 0.5s var(--apple-ease) both;
+}
+
+.shimmer-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 40ms; }
+.stagger-3 { animation-delay: 80ms; }
+.stagger-4 { animation-delay: 120ms; }
+.stagger-5 { animation-delay: 160ms; }
+.stagger-6 { animation-delay: 200ms; }
+.stagger-7 { animation-delay: 240ms; }
+.stagger-8 { animation-delay: 280ms; }
+.stagger-9 { animation-delay: 320ms; }
+.stagger-10 { animation-delay: 360ms; }
+.stagger-11 { animation-delay: 400ms; }
+.stagger-12 { animation-delay: 440ms; }
+
+.now-playing-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
 input[type="file"]::file-selector-button {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s var(--apple-ease);
 }
 
 input[type="file"]::file-selector-button:hover {
   filter: brightness(1.1);
+}
+
+.progress-smooth {
+  transition: width 0.3s linear;
 }

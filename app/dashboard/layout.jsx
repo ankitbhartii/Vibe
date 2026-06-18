@@ -1,16 +1,19 @@
 'use client'
-import React from 'react'
+import React, { useState } from 'react'
 import Header from '@/components/Header'
 import GlobalPlayer from '@/components/GlobalPlayer'
 import { useAudio } from '@/context/AudioContext'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 
 export default function DashboardLayout({ children }) {
   const { 
     activeMenu, setActiveMenu, customPlaylists, 
     selectedPlaylistId, setSelectedPlaylistId, createNewPlaylist 
   } = useAudio()
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const supabase = createClient()
   const router = useRouter()
@@ -20,209 +23,237 @@ export default function DashboardLayout({ children }) {
     router.push('/login')
   }
 
+  const NavButton = ({ menuKey, icon, label, onClick, closeMobile }) => {
+    const isActive = activeMenu === menuKey
+    return (
+      <button 
+        onClick={() => {
+          if (onClick) { onClick() } else { setActiveMenu(menuKey); setSelectedPlaylistId(null); }
+          if (closeMobile) setMobileMenuOpen(false)
+        }}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium relative overflow-hidden gpu-accel transition-colors duration-300 ${
+          isActive 
+            ? 'text-white' 
+            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+        }`}
+      >
+        {isActive && (
+          <motion.div 
+            layoutId="activeNavIndicator"
+            className="absolute inset-0 bg-white/[0.08] z-0"
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          />
+        )}
+        {isActive && (
+          <motion.div 
+            layoutId="activeNavLine"
+            className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-r-full bg-[#fa2d48] z-10"
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          />
+        )}
+        <span className="text-[15px] z-10" style={{ transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>{icon}</span>
+        <span className="z-10">{label}</span>
+      </button>
+    )
+  }
+
+  /* Shared sidebar content — used in both desktop aside and mobile drawer */
+  const SidebarContent = ({ closeMobile }) => (
+    <>
+      {/* SECTION 1: BROWSE */}
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-[10px] font-semibold text-zinc-500 tracking-wider uppercase px-3 mb-1.5">Browse</h3>
+        <nav className="flex flex-col gap-0.5">
+          <NavButton menuKey="new_releases" icon="🎵" label="New Releases" closeMobile={closeMobile} />
+          <NavButton menuKey="top_charts" icon="📈" label="Top Charts" closeMobile={closeMobile} />
+          <NavButton menuKey="top_playlists" icon="📁" label="Top Playlists" closeMobile={closeMobile} />
+          <NavButton menuKey="podcasts" icon="🎙️" label="Podcasts" closeMobile={closeMobile} />
+          <NavButton menuKey="top_artists" icon="👤" label="Top Artists" closeMobile={closeMobile} />
+          <NavButton menuKey="radio" icon="📻" label="Radio" closeMobile={closeMobile} />
+        </nav>
+      </div>
+
+      {/* SECTION 2: MY LIBRARY */}
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-[10px] font-semibold text-zinc-500 tracking-wider uppercase px-3 mb-1.5">My Library</h3>
+        <nav className="flex flex-col gap-0.5">
+          <NavButton menuKey="library_history" icon="🕒" label="History" closeMobile={closeMobile} />
+          <NavButton menuKey="liked_songs" icon="💚" label="Liked Songs" closeMobile={closeMobile} />
+          <NavButton menuKey="library_albums" icon="💽" label="Albums" closeMobile={closeMobile} />
+          <NavButton menuKey="library_podcasts" icon="🎙️" label="Podcasts" closeMobile={closeMobile} />
+          <NavButton menuKey="library_artists" icon="👥" label="Artists" closeMobile={closeMobile} />
+        </nav>
+      </div>
+
+      {/* SECTION 3: PLAYLISTS */}
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-[10px] font-semibold text-zinc-500 tracking-wider uppercase px-3 mb-1.5">Playlists</h3>
+        <div className="flex flex-col gap-0.5 overflow-y-auto custom-scrollbar pr-1 max-h-[200px]">
+          {customPlaylists && customPlaylists.map((playlist) => {
+            const isActive = activeMenu === 'custom_playlist' && selectedPlaylistId === playlist.id
+            return (
+              <button 
+                key={playlist.id}
+                onClick={() => { setActiveMenu('custom_playlist'); setSelectedPlaylistId(playlist.id); if (closeMobile) setMobileMenuOpen(false); }}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-left truncate relative overflow-hidden transition-colors duration-300 ${
+                  isActive
+                    ? 'text-white' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+                }`}
+              >
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeNavIndicator"
+                    className="absolute inset-0 bg-white/[0.08] z-0"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeNavLine"
+                    className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-r-full bg-[#fa2d48] z-10"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className="z-10">📁</span> <span className="z-10 truncate">{playlist.name}</span>
+              </button>
+            )
+          })}
+        </div>
+        <button 
+          onClick={() => { createNewPlaylist(); if (closeMobile) setMobileMenuOpen(false); }}
+          className="mt-2 mx-1 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[12px] text-[#fa2d48] hover:text-[#ff4466] font-semibold py-2 px-4 rounded-full flex items-center justify-center gap-1.5 apple-press"
+          style={{ transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
+        >
+          ➕ Create Playlist
+        </button>
+      </div>
+
+      {/* LOGOUT BUTTON */}
+      <div className="pt-3 border-t border-white/[0.04] flex flex-col gap-1 mt-auto">
+        <button 
+          onClick={() => { handleLogout(); if (closeMobile) setMobileMenuOpen(false); }}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/[0.06] transition-all duration-300"
+        >
+          <span>🚪</span> Log Out
+        </button>
+      </div>
+    </>
+  )
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#050505] text-[#f4f4f5] font-sans overflow-hidden select-none relative">
+    <div className="flex flex-col h-screen w-screen bg-black text-[#f5f5f7] font-sans overflow-hidden select-none relative">
       
-      {/* MONOCHROME TOP HEADER */}
-      <Header />
+      {/* APPLE MUSIC HEADER */}
+      <Header onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} mobileMenuOpen={mobileMenuOpen} />
       
       {/* MAIN PLATFORM WORKSPACE FRAME */}
-      <div className="flex flex-1 w-full overflow-hidden p-2 md:p-4 gap-4 pb-24 md:pb-28"> 
+      <div className="flex flex-1 w-full overflow-hidden p-1.5 md:p-3 gap-2 pb-24 md:pb-28"> 
         
-        {/* MONOCHROME GLASSMORPHIC SIDEBAR */}
-        <aside className="w-60 lg:w-64 hidden md:flex flex-col gap-6 h-full shrink-0 pt-4 px-3 overflow-y-auto custom-scrollbar glass-card rounded-2xl">
-          
-          {/* SECTION 1: BROWSE */}
-          <div className="flex flex-col gap-1.5">
-            <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">Browse</h3>
-            <nav className="flex flex-col gap-1">
-              <button 
-                onClick={() => { setActiveMenu('new_releases'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'new_releases' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>🎵</span> New Releases
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('top_charts'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'top_charts' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>📈</span> Top Charts
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('top_playlists'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'top_playlists' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>📁</span> Top Playlists
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('podcasts'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'podcasts' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>🎙️</span> Podcasts
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('top_artists'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'top_artists' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>👤</span> Top Artists
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('radio'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'radio' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>📻</span> Radio
-              </button>
-            </nav>
-          </div>
- 
-          {/* SECTION 2: MY LIBRARY */}
-          <div className="flex flex-col gap-1.5">
-            <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">My Library</h3>
-            <nav className="flex flex-col gap-1">
-              <button 
-                onClick={() => { setActiveMenu('library_history'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'library_history' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>🕒</span> History
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('liked_songs'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'liked_songs' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>💚</span> Liked Songs
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('library_albums'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'library_albums' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>💽</span> Albums
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('library_podcasts'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'library_podcasts' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>🎙️</span> Podcasts
-              </button>
-              <button 
-                onClick={() => { setActiveMenu('library_artists'); setSelectedPlaylistId(null); }}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                  activeMenu === 'library_artists' 
-                    ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                }`}
-              >
-                <span>👥</span> Artists
-              </button>
-            </nav>
-          </div>
-
-          {/* SECTION 3: PLAYLISTS */}
-          <div className="flex flex-col gap-1.5">
-            <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">Playlists</h3>
-            
-            <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 max-h-[160px]">
-              {customPlaylists && customPlaylists.map((playlist) => (
-                <button 
-                  key={playlist.id}
-                  onClick={() => { setActiveMenu('custom_playlist'); setSelectedPlaylistId(playlist.id); }}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold text-left truncate transition-all duration-200 ${
-                    activeMenu === 'custom_playlist' && selectedPlaylistId === playlist.id
-                      ? 'text-white bg-[#1db954]/10 border border-[#1db954]/20 shadow-[0_0_15px_rgba(29,185,84,0.15)] glow-border' 
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 border border-transparent'
-                  }`}
-                >
-                  <span>📁</span> {playlist.name}
-                </button>
-              ))}
-            </div>
-
-            <button 
-              onClick={createNewPlaylist}
-              className="mt-3 mx-1 border border-zinc-800 hover:border-zinc-700 bg-zinc-950 text-[12px] text-[#1db954] hover:text-[#22c55e] font-bold py-2.5 px-4 rounded-full flex items-center justify-center gap-1.5 transition-all hover:scale-102 active:scale-95 glow-border"
-            >
-              ➕ Create Playlist
-            </button>
-          </div>
-
-          {/* LOGOUT BUTTON */}
-          <div className="pt-4 border-t border-zinc-900 flex flex-col gap-2">
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold text-red-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent transition-all duration-200"
-            >
-              <span>🚪</span> Log Out
-            </button>
-          </div>
+        {/* DESKTOP SIDEBAR */}
+        <aside 
+          className="w-56 lg:w-60 hidden md:flex flex-col gap-5 h-full shrink-0 pt-3 px-2.5 overflow-y-auto custom-scrollbar rounded-2xl"
+          style={{
+            background: 'rgba(18, 18, 20, 0.6)',
+            backdropFilter: 'blur(40px) saturate(150%)',
+            border: '1px solid rgba(255, 255, 255, 0.04)',
+            transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          }}
+        >
+          <SidebarContent />
         </aside>
         
         {/* MAIN FEED SCROLL WORKSPACE WINDOW */}
-        <main className="flex-1 bg-black rounded-2xl overflow-y-auto custom-scrollbar relative border border-zinc-900/60 shadow-inner">
+        <main 
+          className="flex-1 rounded-2xl overflow-y-auto custom-scrollbar relative"
+          style={{
+            background: 'rgba(10, 10, 12, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.03)',
+          }}
+        >
           {children}
         </main>
       </div>
 
-      {/* MOBILE PERSISTENT BOTTOM TRAY NAV DOCK */}
-      <div className="md:hidden fixed bottom-[90px] left-4 right-4 h-14 bg-zinc-950/90 border border-zinc-900/60 backdrop-blur-md rounded-full px-8 flex items-center justify-between z-40 shadow-2xl">
+      {/* MOBILE SLIDE-OUT SIDEBAR DRAWER */}
+      {/* Backdrop overlay */}
+      <div 
+        className={`md:hidden fixed inset-0 z-[60] transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        style={{ background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)' }}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+      
+      {/* Slide-out drawer */}
+      <div 
+        className={`md:hidden fixed top-0 left-0 bottom-0 w-[280px] z-[70] flex flex-col gap-5 pt-16 pb-28 px-3 overflow-y-auto custom-scrollbar gpu-accel`}
+        style={{
+          background: 'rgba(18, 18, 20, 0.97)',
+          backdropFilter: 'blur(50px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(50px) saturate(180%)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+          boxShadow: mobileMenuOpen ? '20px 0 60px rgba(0, 0, 0, 0.7)' : 'none',
+          transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        }}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-2 mb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#fa2d48] to-[#d91e36] flex items-center justify-center text-white font-black text-sm shadow-lg">V</div>
+            <span className="text-[14px] font-semibold text-white">Vibe Music</span>
+          </div>
+          <button 
+            onClick={() => setMobileMenuOpen(false)} 
+            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-zinc-400 hover:text-white apple-press text-sm"
+          >
+            ✕
+          </button>
+        </div>
+
+        <SidebarContent closeMobile={true} />
+      </div>
+
+      {/* MOBILE BOTTOM NAV DOCK — simplified with menu toggle */}
+      <div 
+        className="md:hidden fixed bottom-[76px] left-3 right-3 h-[52px] rounded-full px-6 flex items-center justify-between z-40"
+        style={{
+          background: 'rgba(18, 18, 20, 0.92)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+          boxShadow: '0 15px 50px rgba(0, 0, 0, 0.8)',
+        }}
+      >
         <button 
-          onClick={() => { setActiveMenu('new_releases'); setSelectedPlaylistId(null); }}
-          className={`flex flex-col items-center gap-0.5 ${activeMenu === 'new_releases' ? 'text-[#1db954]' : 'text-zinc-500'}`}
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className={`flex flex-col items-center gap-0.5 apple-press ${mobileMenuOpen ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
+          style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
+        >
+          <span className="text-lg">☰</span>
+          <span className="text-[8px] font-semibold uppercase tracking-tight">Menu</span>
+        </button>
+        <button 
+          onClick={() => { setActiveMenu('new_releases'); setSelectedPlaylistId(null); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center gap-0.5 apple-press ${activeMenu === 'new_releases' ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
+          style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
         >
           <span className="text-lg">🎵</span>
-          <span className="text-[9px] font-bold uppercase tracking-tight font-sans">Browse</span>
+          <span className="text-[8px] font-semibold uppercase tracking-tight">Browse</span>
         </button>
         <button 
-          onClick={() => { setActiveMenu('liked_songs'); setSelectedPlaylistId(null); }}
-          className={`flex flex-col items-center gap-0.5 ${activeMenu === 'liked_songs' ? 'text-[#1db954]' : 'text-zinc-500'}`}
+          onClick={() => { setActiveMenu('liked_songs'); setSelectedPlaylistId(null); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center gap-0.5 apple-press ${activeMenu === 'liked_songs' ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
+          style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
         >
           <span className="text-lg">💚</span>
-          <span className="text-[9px] font-medium uppercase tracking-tight font-sans">Library</span>
+          <span className="text-[8px] font-semibold uppercase tracking-tight">Library</span>
         </button>
         <button 
-          onClick={handleLogout}
-          className="flex flex-col items-center gap-0.5 text-red-500 hover:text-red-400"
+          onClick={() => { setActiveMenu('top_charts'); setSelectedPlaylistId(null); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center gap-0.5 apple-press ${activeMenu === 'top_charts' ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
+          style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
         >
-          <span className="text-lg">🚪</span>
-          <span className="text-[9px] font-bold uppercase tracking-tight font-sans">Log Out</span>
+          <span className="text-lg">📈</span>
+          <span className="text-[8px] font-semibold uppercase tracking-tight">Charts</span>
         </button>
       </div>
 

@@ -736,7 +736,7 @@ export default function GlobalPlayer() {
   const renderXRay = () => {
     return (
       <div className="h-full overflow-y-auto px-6 py-4 flex flex-col gap-4 text-left text-zinc-300 text-sm">
-        <h3 className="text-xs font-bold font-mono text-[#1db954] uppercase tracking-widest mb-1">Track Information</h3>
+        <h3 className="text-xs font-bold font-mono text-[#fa2d48] uppercase tracking-widest mb-1">Track Information</h3>
         <div className="flex flex-col gap-3.5">
           <p><span className="text-zinc-500 font-medium">Song Title:</span> <strong className="text-white ml-1.5">{currentSong.title}</strong></p>
           <p><span className="text-zinc-500 font-medium">Primary Artist:</span> <strong className="text-white ml-1.5">{currentSong.artist}</strong></p>
@@ -755,7 +755,7 @@ export default function GlobalPlayer() {
         
         {/* NOW PLAYING SECTION */}
         <div>
-          <h3 className="text-xs font-bold font-mono text-[#1db954] uppercase tracking-widest mb-2.5">Now Playing</h3>
+          <h3 className="text-xs font-bold font-mono text-[#fa2d48] uppercase tracking-widest mb-2.5">Now Playing</h3>
           <div className="flex items-center gap-3 bg-zinc-900/40 border border-zinc-800/20 p-2.5 rounded-xl">
             {currentSong.image_url ? (
               <img src={currentSong.image_url} alt="" className="w-10 h-10 object-cover rounded-lg" />
@@ -766,7 +766,7 @@ export default function GlobalPlayer() {
               <p className="text-xs font-bold text-white truncate">{currentSong.title}</p>
               <p className="text-[10px] text-zinc-500 truncate mt-0.5">{currentSong.artist}</p>
             </div>
-            <span className="text-[9px] bg-[#1db954]/10 text-[#1db954] px-2 py-0.5 rounded font-mono font-bold">PLAYING</span>
+            <span className="text-[9px] bg-[#fa2d48]/10 text-[#fa2d48] px-2 py-0.5 rounded font-mono font-bold">PLAYING</span>
           </div>
         </div>
 
@@ -816,7 +816,7 @@ export default function GlobalPlayer() {
           </div>
           <button 
             onClick={() => setAutoplayEnabled(!autoplayEnabled)}
-            className={`w-10 h-5.5 rounded-full p-0.5 transition-colors duration-250 shrink-0 ${autoplayEnabled ? 'bg-[#1db954]' : 'bg-zinc-800'}`}
+            className={`w-10 h-5.5 rounded-full p-0.5 transition-colors duration-250 shrink-0 ${autoplayEnabled ? 'bg-[#fa2d48]' : 'bg-zinc-800'}`}
           >
             <div className={`w-4.5 h-4.5 bg-white rounded-full transition-transform duration-250 shadow-md ${autoplayEnabled ? 'translate-x-4.5' : 'translate-x-0'}`} />
           </button>
@@ -863,29 +863,38 @@ export default function GlobalPlayer() {
 
   return (
     <>
-      {/* 1. MINI BOTTOM BAR PLAYER */}
-      <div className="fixed bottom-4 left-4 right-4 md:left-6 md:right-6 h-[85px] md:h-[95px] bg-[#0c0c0e]/80 border border-zinc-800/80 rounded-2xl px-4 md:px-6 flex items-center justify-between z-50 text-white select-none backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] glow-border animate-in slide-in-from-bottom duration-300">
+      {/* 1. MINI BOTTOM BAR PLAYER — Apple Music Style */}
+      <div 
+        className="fixed bottom-3 left-3 right-3 md:left-4 md:right-4 h-[72px] md:h-[80px] rounded-2xl px-4 md:px-5 flex items-center justify-between z-50 text-white select-none gpu-accel animate-spring-bounce"
+        style={{
+          background: 'rgba(18, 18, 20, 0.85)',
+          backdropFilter: 'blur(50px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(50px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 0.5px rgba(255, 255, 255, 0.04) inset',
+        }}
+      >
         
         {/* LEFT: Song info (clickable to expand) */}
         <div onClick={() => setIsExpanded(true)} className="flex items-center gap-3 w-1/3 min-w-[150px] md:min-w-[240px] cursor-pointer group">
           <div className="relative shrink-0">
             {currentSong.image_url ? (
-              <img src={currentSong.image_url} alt="" className="w-11 h-11 md:w-14 md:h-14 object-cover rounded-xl shadow-md border border-zinc-800/40 group-hover:scale-105 transition-transform" />
+              <img src={currentSong.image_url} alt="" className="w-11 h-11 md:w-13 md:h-13 object-cover rounded-xl shadow-lg" style={{ transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)', border: '1px solid rgba(255,255,255,0.06)' }} />
             ) : (
-              <div className="w-11 h-11 md:w-14 md:h-14 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-xs md:text-sm text-zinc-500">🎵</div>
+              <div className="w-11 h-11 md:w-13 md:h-13 rounded-xl bg-white/[0.05] flex items-center justify-center font-bold text-xs md:text-sm text-zinc-500">🎵</div>
             )}
             {isTidal && (
-              <span className="absolute -top-1.5 -right-1.5 bg-[#1db954] text-black text-[8px] font-extrabold px-1 rounded-md font-mono select-none shadow">
+              <span className="absolute -top-1 -right-1 bg-[#fa2d48] text-white text-[7px] font-bold px-1 rounded-md select-none shadow-sm">
                 HIFI
               </span>
             )}
           </div>
           <div className="flex flex-col min-w-0 max-w-[100px] sm:max-w-[150px]">
-            <span className="text-[12px] md:text-[13px] font-bold text-zinc-100 group-hover:text-[#22c55e] truncate transition-colors duration-200">{currentSong.title}</span>
-            <span className="text-[10px] md:text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{currentSong.artist}</span>
+            <span className="text-[12px] md:text-[13px] font-semibold text-white group-hover:text-[#fa2d48] truncate" style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>{currentSong.title}</span>
+            <span className="text-[10px] md:text-[11px] text-zinc-500 truncate mt-0.5">{currentSong.artist}</span>
           </div>
           <div className="flex items-center gap-0.5 ml-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => toggleFavorite(currentSong, currentSong.is_favorite)} className="transition-transform duration-150 hover:scale-125 active:scale-90 text-xs p-1" title="Like Track">
+            <button onClick={() => toggleFavorite(currentSong, currentSong.is_favorite)} className="apple-press text-xs p-1" title="Like Track">
               {currentSong.is_favorite ? '❤️' : '🤍'}
             </button>
           </div>
@@ -896,17 +905,18 @@ export default function GlobalPlayer() {
           
           {/* Playback controls */}
           <div className="flex items-center gap-5 md:gap-6">
-            <button onClick={() => setIsShuffle(!isShuffle)} className={`transition-colors duration-150 p-1 ${isShuffle ? 'text-[#1db954]' : 'text-zinc-500 hover:text-white'}`} title="Shuffle">
+            <button onClick={() => setIsShuffle(!isShuffle)} className={`apple-press p-1 ${isShuffle ? 'text-[#fa2d48]' : 'text-zinc-500 hover:text-white'}`} style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }} title="Shuffle">
               <svg role="img" height="15" width="15" fill="currentColor" viewBox="0 0 16 16"><path d="M10.596 1.161a1 1 0 0 0-1.414 0L7.83 2.513l1.414 1.415 1.352-1.353 1.353 1.353 1.414-1.415-2.167-2.152zM1.05 1.05a1 1 0 0 0 0 1.414L3.636 5.05l1.415-1.414L2.464 1.05a1 1 0 0 0-1.414 0zm11.364 11.364L9.828 9.828l-1.414 1.414 2.586 2.586a1 1 0 0 0 1.414 0l2.167-2.152-1.414-1.415-1.353 1.353zm-8.778.136l8.727-8.727-1.414-1.414-8.727 8.727 1.414 1.414z"></path></svg>
             </button>
             
-            <button onClick={handlePrev} className="text-zinc-400 hover:text-white transition-colors duration-150 p-1" title="Previous">
+            <button onClick={handlePrev} className="text-zinc-400 hover:text-white apple-press p-1" title="Previous">
               <svg role="img" height="15" width="15" fill="currentColor" viewBox="0 0 16 16"><path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v11.475a.7.7 0 0 1-1.05.606L4 9.15v5.15a.7.7 0 0 1-1.4 0V1.7a.7.7 0 0 1 .7-.7z"></path></svg>
             </button>
             
             <button 
               onClick={() => setIsPlaying(!isPlaying)} 
-              className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white text-black flex items-center justify-center transform hover:scale-105 active:scale-95 transition-all shadow-md shrink-0"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white text-black flex items-center justify-center shrink-0 apple-press"
+              style={{ boxShadow: '0 4px 20px rgba(255, 255, 255, 0.15)' }}
             >
               {isPlaying ? (
                 <svg role="img" height="14" width="14" fill="currentColor" viewBox="0 0 16 16"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm7.4 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"></path></svg>
@@ -915,11 +925,11 @@ export default function GlobalPlayer() {
               )}
             </button>
             
-            <button onClick={handleNext} className="text-zinc-400 hover:text-white transition-colors duration-150 p-1" title="Next">
+            <button onClick={handleNext} className="text-zinc-400 hover:text-white apple-press p-1" title="Next">
               <svg role="img" height="15" width="15" fill="currentColor" viewBox="0 0 16 16"><path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.106A.7.7 0 0 0 1 1.712v11.475a.7.7 0 0 0 1.05.606L12 9.15v5.15a.7.7 0 0 0 1.4 0V1.7a.7.7 0 0 0-.7-.7z"></path></svg>
             </button>
             
-            <button onClick={() => setIsRepeat(!isRepeat)} className={`transition-colors duration-150 p-1 ${isRepeat ? 'text-[#1db954]' : 'text-zinc-500 hover:text-white'}`} title="Repeat">
+            <button onClick={() => setIsRepeat(!isRepeat)} className={`apple-press p-1 ${isRepeat ? 'text-[#fa2d48]' : 'text-zinc-500 hover:text-white'}`} style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }} title="Repeat">
               <svg role="img" height="15" width="15" fill="currentColor" viewBox="0 0 16 16"><path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.03a.75.75 0 0 1 0-1.06l2.829-2.829a.75.75 0 1 1 1.06 1.06L9.81 12h2.44a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"></path></svg>
             </button>
           </div>
@@ -929,12 +939,12 @@ export default function GlobalPlayer() {
             <span className="min-w-[30px] text-right">{formatTime(currentTime)}</span>
             <div 
               ref={progressRef} onClick={handleScrub} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
-              className="flex-1 h-1 bg-zinc-800 rounded-full cursor-pointer relative py-2 flex items-center group"
+              className="flex-1 h-1 bg-white/[0.08] rounded-full cursor-pointer relative py-2 flex items-center group"
             >
-              <div className="w-full h-1 bg-zinc-800 rounded-full relative overflow-hidden">
-                <div className={`h-full rounded-full transition-colors ${isHovered ? 'bg-[#1db954]' : 'bg-zinc-400'}`} style={{ width: `${progressPct}%` }} />
+              <div className="w-full h-1 bg-white/[0.08] rounded-full relative overflow-hidden">
+                <div className={`h-full rounded-full progress-smooth ${isHovered ? 'bg-[#fa2d48]' : 'bg-white/60'}`} style={{ width: `${progressPct}%` }} />
               </div>
-              <div className={`absolute w-3 h-3 bg-white rounded-full shadow-md transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`} style={{ left: `calc(${progressPct}% - 6px)` }} />
+              <div className={`absolute w-3 h-3 bg-white rounded-full shadow-lg gpu-accel`} style={{ left: `calc(${progressPct}% - 6px)`, opacity: isHovered ? 1 : 0, transform: isHovered ? 'scale(1)' : 'scale(0.5)', transition: 'opacity 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
             </div>
             <span className="min-w-[30px] text-left">{formatTime(duration)}</span>
           </div>
@@ -948,41 +958,42 @@ export default function GlobalPlayer() {
             </button>
             <input 
               type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(parseFloat(e.target.value))}
-              className="w-full accent-white group-hover:accent-[#1db954] h-1 bg-zinc-800 rounded-lg cursor-pointer appearance-none transition-all" 
+              className="w-full accent-white group-hover:accent-[#fa2d48] h-1 bg-zinc-800 rounded-lg cursor-pointer appearance-none transition-all" 
             />
           </div>
         </div>
       </div>
 
-      {/* 2. EXPANDED AMAZON-STYLE BLURRED PLAYER OVERLAY */}
+      {/* 2. EXPANDED APPLE MUSIC FULL-SCREEN PLAYER */}
       {isExpanded && (
-        <div className="fixed inset-0 bg-black z-[100] flex flex-col justify-between p-6 select-none animate-in fade-in slide-in-from-bottom duration-500 text-white overflow-hidden">
-          {/* Dynamic Blurred Adaptive Backdrop */}
+        <div className="fixed inset-0 z-[100] flex flex-col justify-between p-5 select-none text-white overflow-hidden animate-expand-player" style={{ background: '#000' }}>
+          {/* Dynamic Blurred Adaptive Backdrop — Apple Music style */}
           <div 
-            className="absolute inset-0 bg-cover bg-center transition-all duration-1000 -z-10 scale-110"
+            className="absolute inset-0 bg-cover bg-center -z-10 scale-125 gpu-accel"
             style={{ 
               backgroundImage: `url(${currentSong.image_url})`,
-              filter: 'blur(40px) brightness(0.20)',
+              filter: 'blur(80px) brightness(0.18) saturate(1.4)',
+              transition: 'background-image 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/95 -z-10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/90 -z-10" />
 
           {/* HEADER ROW */}
-          <div className="flex justify-between items-center w-full max-w-md mx-auto pb-4">
+          <div className="flex justify-between items-center w-full max-w-md mx-auto pb-3">
             <button 
               onClick={() => { setIsExpanded(false); setActiveOverlayTab(''); }}
-              className="w-10 h-10 rounded-full bg-zinc-800/40 hover:bg-zinc-800 flex items-center justify-center transition hover:scale-105 active:scale-95"
+              className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center apple-press"
               title="Close Player"
             >
-              <svg role="img" height="18" width="18" fill="currentColor" viewBox="0 0 16 16"><path d="M8 11.5a.75.75 0 0 1-.53-.22L3.22 7.03a.75.75 0 1 1 1.06-1.06L8 9.44l3.72-3.47a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-.53.22z"></path></svg>
+              <svg role="img" height="16" width="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 11.5a.75.75 0 0 1-.53-.22L3.22 7.03a.75.75 0 1 1 1.06-1.06L8 9.44l3.72-3.47a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-.53.22z"></path></svg>
             </button>
-            <span className="text-[9px] font-extrabold tracking-widest font-mono text-zinc-400 uppercase">VIBE MUSIC PLAYER</span>
+            <span className="text-[9px] font-semibold tracking-[0.2em] text-zinc-500 uppercase">Now Playing</span>
             <button 
-              className="w-10 h-10 rounded-full bg-zinc-800/40 hover:bg-zinc-800 flex items-center justify-center transition"
+              className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center apple-press"
               title="Track Details"
               onClick={() => setActiveOverlayTab(activeOverlayTab === 'xray' ? '' : 'xray')}
             >
-              <svg role="img" height="16" width="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8.75 4a.75.75 0 0 1-1.5 0V7a.75.75 0 0 1 1.5 0v5zM8 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"></path></svg>
+              <svg role="img" height="14" width="14" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8.75 4a.75.75 0 0 1-1.5 0V7a.75.75 0 0 1 1.5 0v5zM8 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"></path></svg>
             </button>
           </div>
 
@@ -1004,8 +1015,8 @@ export default function GlobalPlayer() {
                 <div className="relative z-10 flex flex-col h-full">
                   <div className="px-5 pt-4 pb-3 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#1db954] animate-pulse" />
-                      <span className="text-[10px] font-bold font-mono tracking-[0.2em] text-[#1db954] uppercase">Lyrics</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#fa2d48] animate-pulse" />
+                      <span className="text-[10px] font-bold font-mono tracking-[0.2em] text-[#fa2d48] uppercase">Lyrics</span>
                     </div>
                     <button onClick={() => setActiveOverlayTab('')} className="text-zinc-600 hover:text-white text-[11px] font-mono transition-colors">✕</button>
                   </div>
@@ -1017,7 +1028,7 @@ export default function GlobalPlayer() {
             ) : activeOverlayTab === 'xray' ? (
               <div className="w-full h-full min-h-[300px] bg-zinc-950/60 border border-zinc-800/40 rounded-3xl backdrop-blur-md p-4 shadow-2xl transition-all duration-300">
                 <div className="flex justify-between items-center border-b border-zinc-900 pb-2.5 mb-2 shrink-0">
-                  <span className="text-[10px] font-bold font-mono tracking-wider text-[#22c55e] uppercase">🔍 X-Ray Details</span>
+                  <span className="text-[10px] font-bold font-mono tracking-wider text-[#ff4466] uppercase">🔍 X-Ray Details</span>
                   <button onClick={() => setActiveOverlayTab('')} className="text-zinc-500 hover:text-white text-xs px-1">✕ Close</button>
                 </div>
                 {renderXRay()}
@@ -1025,7 +1036,7 @@ export default function GlobalPlayer() {
             ) : activeOverlayTab === 'queue' ? (
               <div className="w-full h-full min-h-[300px] bg-zinc-950/60 border border-zinc-800/40 rounded-3xl backdrop-blur-md flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300">
                 <div className="p-4 border-b border-zinc-900 flex justify-between items-center shrink-0">
-                  <span className="text-[10px] font-bold font-mono tracking-wider text-[#22c55e] uppercase">🎵 Playback Queue</span>
+                  <span className="text-[10px] font-bold font-mono tracking-wider text-[#ff4466] uppercase">🎵 Playback Queue</span>
                   <button onClick={() => setActiveOverlayTab('')} className="text-zinc-500 hover:text-white text-xs px-1">✕ Close</button>
                 </div>
                 <div className="flex-1 overflow-hidden">
@@ -1085,24 +1096,26 @@ export default function GlobalPlayer() {
           <div className="w-full max-w-md mx-auto flex flex-col pb-6">
             
             {/* TABS: Lyrics / X-Ray pills */}
-            <div className="flex gap-3 justify-center mb-6">
+            <div className="flex gap-2.5 justify-center mb-5">
               <button
                 onClick={() => setActiveOverlayTab(activeOverlayTab === 'lyrics' ? '' : 'lyrics')}
-                className={`py-1.5 px-5 rounded-full text-xs font-bold transition-all duration-200 border ${
+                className={`py-1.5 px-5 rounded-full text-[11px] font-semibold apple-press border ${
                   activeOverlayTab === 'lyrics'
-                    ? 'bg-white text-black border-transparent shadow-lg scale-[1.03]'
-                    : 'bg-zinc-900/50 border-zinc-800/60 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                    ? 'bg-white text-black border-transparent shadow-lg'
+                    : 'bg-white/[0.06] border-white/[0.06] text-zinc-400 hover:bg-white/[0.1] hover:text-white'
                 }`}
+                style={{ transition: 'all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
               >
                 {parsedLyrics.length > 0 ? '⏱ Synced Lyrics' : 'Lyrics'}
               </button>
               <button
                 onClick={() => setActiveOverlayTab(activeOverlayTab === 'xray' ? '' : 'xray')}
-                className={`py-1.5 px-5 rounded-full text-xs font-bold transition-all duration-200 border ${
+                className={`py-1.5 px-5 rounded-full text-[11px] font-semibold apple-press border ${
                   activeOverlayTab === 'xray'
-                    ? 'bg-white text-black border-transparent shadow-lg scale-[1.03]'
-                    : 'bg-zinc-900/50 border-zinc-800/60 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                    ? 'bg-white text-black border-transparent shadow-lg'
+                    : 'bg-white/[0.06] border-white/[0.06] text-zinc-400 hover:bg-white/[0.1] hover:text-white'
                 }`}
+                style={{ transition: 'all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
               >
                 X-Ray
               </button>
@@ -1131,7 +1144,7 @@ export default function GlobalPlayer() {
                   className="flex-1 h-1 bg-zinc-800 rounded-full cursor-pointer relative py-2 flex items-center group"
                 >
                   <div className="w-full h-1 bg-zinc-800 rounded-full relative overflow-hidden">
-                    <div className="h-full rounded-full bg-white transition-colors group-hover:bg-[#1db954]" style={{ width: `${progressPct}%` }} />
+                    <div className="h-full rounded-full bg-white transition-colors group-hover:bg-[#fa2d48]" style={{ width: `${progressPct}%` }} />
                   </div>
                   <div className="absolute w-3 h-3 bg-white rounded-full shadow-md" style={{ left: `calc(${progressPct}% - 6px)` }} />
                 </div>
@@ -1140,31 +1153,32 @@ export default function GlobalPlayer() {
               
               {/* Quality Label Badge */}
               <div className="flex justify-center">
-                <span className="text-[9px] bg-zinc-900/60 border border-zinc-800/80 text-zinc-500 font-black tracking-widest px-2.5 py-0.5 rounded font-mono">
-                  {currentSong.audio_url ? 'ULTRA HD' : 'SD'}
+                <span className="text-[8px] bg-white/[0.05] border border-white/[0.06] text-zinc-500 font-semibold tracking-[0.15em] px-2.5 py-0.5 rounded-full">
+                  {currentSong.audio_url ? 'LOSSLESS' : 'AAC'}
                 </span>
               </div>
             </div>
 
-            {/* AUDIO PRIMARY CONTROLS */}
-            <div className="flex items-center justify-center gap-8 mb-6">
-              <button onClick={triggerPrevWithAnimation} className="text-white hover:text-zinc-300 p-2 transition hover:scale-105 active:scale-95" title="Previous">
-                <svg role="img" height="20" width="20" fill="currentColor" viewBox="0 0 16 16"><path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v11.475a.7.7 0 0 1-1.05.606L4 9.15v5.15a.7.7 0 0 1-1.4 0V1.7a.7.7 0 0 1 .7-.7z"></path></svg>
+            {/* AUDIO PRIMARY CONTROLS — Apple Music Style */}
+            <div className="flex items-center justify-center gap-10 mb-6">
+              <button onClick={triggerPrevWithAnimation} className="text-white/80 hover:text-white p-2 apple-press" title="Previous">
+                <svg role="img" height="22" width="22" fill="currentColor" viewBox="0 0 16 16"><path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v11.475a.7.7 0 0 1-1.05.606L4 9.15v5.15a.7.7 0 0 1-1.4 0V1.7a.7.7 0 0 1 .7-.7z"></path></svg>
               </button>
               
               <button 
                 onClick={() => setIsPlaying(!isPlaying)} 
-                className="w-16 h-16 rounded-full bg-zinc-900/60 hover:bg-zinc-850 border border-zinc-800 text-white flex items-center justify-center shadow-lg transition transform hover:scale-105 active:scale-95"
+                className="w-[68px] h-[68px] rounded-full bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.08] text-white flex items-center justify-center apple-press"
+                style={{ boxShadow: '0 8px 40px rgba(0, 0, 0, 0.4)', transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
               >
                 {isPlaying ? (
-                  <svg role="img" height="24" width="24" fill="currentColor" viewBox="0 0 16 16"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm7.4 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"></path></svg>
+                  <svg role="img" height="26" width="26" fill="currentColor" viewBox="0 0 16 16"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm7.4 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"></path></svg>
                 ) : (
-                  <svg role="img" height="24" width="24" fill="currentColor" viewBox="0 0 16 16" className="ml-1"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"></path></svg>
+                  <svg role="img" height="26" width="26" fill="currentColor" viewBox="0 0 16 16" className="ml-1"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"></path></svg>
                 )}
               </button>
 
-              <button onClick={triggerNextWithAnimation} className="text-white hover:text-zinc-300 p-2 transition hover:scale-105 active:scale-95" title="Next">
-                <svg role="img" height="20" width="20" fill="currentColor" viewBox="0 0 16 16"><path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.106A.7.7 0 0 0 1 1.712v11.475a.7.7 0 0 0 1.05.606L12 9.15v5.15a.7.7 0 0 0 1.4 0V1.7a.7.7 0 0 0-.7-.7z"></path></svg>
+              <button onClick={triggerNextWithAnimation} className="text-white/80 hover:text-white p-2 apple-press" title="Next">
+                <svg role="img" height="22" width="22" fill="currentColor" viewBox="0 0 16 16"><path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.106A.7.7 0 0 0 1 1.712v11.475a.7.7 0 0 0 1.05.606L12 9.15v5.15a.7.7 0 0 0 1.4 0V1.7a.7.7 0 0 0-.7-.7z"></path></svg>
               </button>
             </div>
 
@@ -1184,7 +1198,7 @@ export default function GlobalPlayer() {
               <button
                 onClick={handleCast}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 ${
-                  castActive ? 'bg-[#1db954] text-black shadow-lg' : 'bg-zinc-900/40 hover:bg-zinc-800 hover:text-white text-zinc-400'
+                  castActive ? 'bg-[#fa2d48] text-black shadow-lg' : 'bg-zinc-900/40 hover:bg-zinc-800 hover:text-white text-zinc-400'
                 }`}
                 title={castActive ? 'Stop Casting' : 'Cast / Screen Share'}
               >
@@ -1197,7 +1211,7 @@ export default function GlobalPlayer() {
               <button
                 onClick={() => setActiveOverlayTab(activeOverlayTab === 'queue' ? '' : 'queue')}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition ${
-                  activeOverlayTab === 'queue' ? 'bg-[#1db954] text-black shadow-lg hover:bg-[#1ed760]' : 'bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                  activeOverlayTab === 'queue' ? 'bg-[#fa2d48] text-black shadow-lg hover:bg-[#ff5577]' : 'bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800 hover:text-white'
                 }`}
                 title="Up Next Queue"
               >
@@ -1334,7 +1348,7 @@ export default function GlobalPlayer() {
                   <button onClick={() => setShowSpeedPicker(true)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
                     <span className="text-base w-6 text-center">⚡</span>
                     <span className="text-[13px] text-zinc-200 font-medium">Playback Speed</span>
-                    <span className="ml-auto text-[11px] font-mono text-[#1db954]">{playbackSpeed}x</span>
+                    <span className="ml-auto text-[11px] font-mono text-[#fa2d48]">{playbackSpeed}x</span>
                   </button>
                   <button
                     onClick={() => {
@@ -1358,12 +1372,12 @@ export default function GlobalPlayer() {
                   <button onClick={() => { setIsShuffle(!isShuffle); setShowMoreMenu(false) }} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
                     <span className="text-base w-6 text-center">🔀</span>
                     <span className="text-[13px] text-zinc-200 font-medium">Shuffle</span>
-                    <span className={`ml-auto text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isShuffle ? 'bg-[#1db954]/20 text-[#1db954]' : 'bg-zinc-800 text-zinc-500'}`}>{isShuffle ? 'ON' : 'OFF'}</span>
+                    <span className={`ml-auto text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isShuffle ? 'bg-[#fa2d48]/20 text-[#fa2d48]' : 'bg-zinc-800 text-zinc-500'}`}>{isShuffle ? 'ON' : 'OFF'}</span>
                   </button>
                   <button onClick={() => { setIsRepeat(!isRepeat); setShowMoreMenu(false) }} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/40 transition text-left w-full">
                     <span className="text-base w-6 text-center">🔁</span>
                     <span className="text-[13px] text-zinc-200 font-medium">Repeat</span>
-                    <span className={`ml-auto text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isRepeat ? 'bg-[#1db954]/20 text-[#1db954]' : 'bg-zinc-800 text-zinc-500'}`}>{isRepeat ? 'ON' : 'OFF'}</span>
+                    <span className={`ml-auto text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isRepeat ? 'bg-[#fa2d48]/20 text-[#fa2d48]' : 'bg-zinc-800 text-zinc-500'}`}>{isRepeat ? 'ON' : 'OFF'}</span>
                   </button>
 
                   {/* TRACK section */}
@@ -1429,7 +1443,7 @@ export default function GlobalPlayer() {
                 <div className="flex flex-col py-2">
                   {SPEEDS.map(s => (
                     <button key={s} onClick={() => { setPlaybackSpeed(s); setShowSpeedPicker(false); setShowMoreMenu(false); setShareToast(`Speed: ${s}x`); setTimeout(() => setShareToast(''), 1800) }}
-                      className={`flex items-center justify-between px-5 py-4 hover:bg-zinc-800/40 transition ${playbackSpeed === s ? 'text-[#1db954]' : 'text-zinc-200'}`}>
+                      className={`flex items-center justify-between px-5 py-4 hover:bg-zinc-800/40 transition ${playbackSpeed === s ? 'text-[#fa2d48]' : 'text-zinc-200'}`}>
                       <span className="text-[14px] font-medium">{s === 1 ? 'Normal (1x)' : `${s}x`}</span>
                       {playbackSpeed === s && <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>}
                     </button>
@@ -1443,9 +1457,17 @@ export default function GlobalPlayer() {
         </div>
       )}
 
-      {/* TOAST */}
+      {/* TOAST — Apple Music style */}
       {shareToast && (
-        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[200] bg-zinc-900 border border-zinc-700/60 text-white text-[12px] font-semibold px-5 py-2.5 rounded-full shadow-2xl whitespace-nowrap">
+        <div 
+          className="fixed bottom-28 left-1/2 z-[200] text-white text-[12px] font-medium px-5 py-2.5 rounded-2xl whitespace-nowrap animate-toast-in"
+          style={{
+            background: 'rgba(30, 30, 32, 0.92)',
+            backdropFilter: 'blur(30px) saturate(180%)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 15px 50px rgba(0, 0, 0, 0.6)',
+          }}
+        >
           {shareToast}
         </div>
       )}
