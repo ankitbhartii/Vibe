@@ -1,0 +1,2 @@
+# Ignore docker-compose and Nginx reverse proxy files during Vercel frontend deployments
+downloader-pipeline/

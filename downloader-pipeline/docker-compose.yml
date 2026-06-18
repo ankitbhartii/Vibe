@@ -1,0 +1,86 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: music-nginx
+    ports:
+      - "80:80"
+    environment:
+      - HIDE_CLIENT_IP=${HIDE_CLIENT_IP:-1.2.3.4}
+      - CUSTOM_DOMAIN=${CUSTOM_DOMAIN:-localhost}
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - fastapi-api
+      - navidrome
+    restart: unless-stopped
+    networks:
+      - music-network
+
+  redis:
+    image: redis:alpine
+    container_name: music-redis
+    restart: unless-stopped
+    networks:
+      - music-network
+
+  fastapi-api:
+    build: ./backend-api
+    container_name: music-fastapi
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CUSTOM_DOMAIN=${CUSTOM_DOMAIN}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - music-network
+
+  worker:
+    build: ./download-worker
+    container_name: music-worker
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TEMP_DIR=/tmp/downloads
+      - BEETS_CONFIG=/config/beets/config.yaml
+    volumes:
+      # Bind mount the music library so files are directly accessible on the host machine
+      - ./music:/music
+      # Bind mount config directories for persistence
+      - ./beets:/config/beets
+      - ./streamrip:/root/.config/streamrip
+      # Named volume for temp files to keep processing in high-performance storage
+      - temp_downloads:/tmp/downloads
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - music-network
+
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: music-navidrome
+    # Removed direct port mapping to force all traffic through Nginx proxy
+    environment:
+      ND_MUSICFOLDER: "/music"
+      ND_DATAFOLDER: "/data"
+      ND_SCANINTERVAL: "1m"
+      ND_LOGLEVEL: "info"
+    volumes:
+      # Mount data database locally
+      - ./navidrome_data:/data
+      # Mount the same music folder as read-only to stream from it
+      - ./music:/music:ro
+    depends_on:
+      - worker
+    restart: unless-stopped
+    networks:
+      - music-network
+
+networks:
+  music-network:
+    driver: bridge
+
+volumes:
+  temp_downloads:

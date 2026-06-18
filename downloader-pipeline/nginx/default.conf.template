@@ -1,0 +1,130 @@
+# 1. Resolve the real client IP, prioritizing CDN headers
+# Extract the client IP from Cloudflare's header, fallback to X-Forwarded-For
+map $http_cf_connecting_ip $real_client_ip {
+    "" $http_x_forwarded_for;
+    default $http_cf_connecting_ip;
+}
+
+# If both CDN headers are empty, fallback to the direct connection remote_addr
+map $real_client_ip $final_client_ip {
+    "" $remote_addr;
+    default $real_client_ip;
+}
+
+# 2. Mask the resolved client IP if it matches the target IP to hide
+map $final_client_ip $masked_client_ip {
+    "${HIDE_CLIENT_IP}" "127.0.0.1";
+    default $final_client_ip;
+}
+
+# 3. Create the masked X-Forwarded-For header chain
+map $final_client_ip $masked_forwarded_for {
+    "${HIDE_CLIENT_IP}" "127.0.0.1";
+    default $proxy_add_x_forwarded_for;
+}
+
+# 4. Map to exclude the masked IP from access logs
+map $final_client_ip $should_log {
+    "${HIDE_CLIENT_IP}" 0;
+    default 1;
+}
+
+# Rate limit zones
+# Limit requests to API generally: 10 requests per second
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+# Strict limit for triggering downloads: 1 request per minute (to prevent abuse)
+limit_req_zone $binary_remote_addr zone=download_limit:10m rate=1r/m;
+
+# Upstream definitions
+upstream navidrome_server {
+    server navidrome:4533;
+}
+
+upstream fastapi_server {
+    server fastapi-api:8000;
+}
+
+# Fallback server block to drop direct IP address requests or unmatched domains
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    # Return 444 (No Response) to drop the connection immediately
+    return 444;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${CUSTOM_DOMAIN} www.${CUSTOM_DOMAIN};
+
+    # Hide Nginx version details to prevent server fingerprinting
+    server_tokens off;
+
+    # General client request settings & Buffer Overflow Protection
+    client_max_body_size 10M;
+    client_body_buffer_size 128k;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 4k;
+    client_body_timeout 12s;
+    client_header_timeout 12s;
+    keepalive_timeout 65s;
+    send_timeout 10s;
+
+    # Strict HTTP Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self';" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+
+    # Block HTTP Methods that are not needed (restrict to only standard ones)
+    if ($request_method !~ ^(GET|HEAD|POST|OPTIONS|PUT|PATCH)$ ) {
+        return 444; # Connection closed without response
+    }
+
+    # Conditional access logging to hide traffic logs from the target IP
+    access_log /var/log/nginx/access.log combined if=$should_log;
+
+    # Proxy headers
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $masked_client_ip;
+    proxy_set_header X-Forwarded-For $masked_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # 1. FastAPI Download Trigger Endpoint
+    # Apply strict rate limiting (1 download enqueue request per minute per IP)
+    location /api/download {
+        limit_req zone=download_limit burst=2 nodelay;
+        
+        # Rewrite URL from /api/download to /download for FastAPI
+        rewrite ^/api/(.*)$ /$1 break;
+        
+        proxy_pass http://fastapi_server;
+    }
+
+    # 2. General FastAPI Endpoints (health, job status checking)
+    location /api/ {
+        limit_req zone=api_limit burst=15 nodelay;
+        
+        # Rewrite URL from /api/job/... to /job/... for FastAPI
+        rewrite ^/api/(.*)$ /$1 break;
+        
+        proxy_pass http://fastapi_server;
+    }
+
+    # 3. Navidrome Web Interface & Streaming APIs (default handler)
+    location / {
+        proxy_pass http://navidrome_server;
+        
+        # WebSocket support for Navidrome if needed
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Disable buffering for smooth audio streaming
+        proxy_buffering off;
+    }
+}
