@@ -4,10 +4,13 @@ import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+import { useAudio } from '@/context/AudioContext'
+
 export default function Header({ onMenuToggle, mobileMenuOpen }) {
   const [user, setUser] = useState(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const { searchQuery, setSearchQuery } = useAudio()
   const supabase = createClient()
   const router = useRouter()
 
@@ -83,10 +86,20 @@ export default function Header({ onMenuToggle, mobileMenuOpen }) {
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm transition-transform duration-300 group-focus-within:scale-110">🔍</span>
           <input 
             type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="What do you want to play?" 
-            className="w-full bg-white/[0.06] hover:bg-white/[0.09] text-[13px] pl-10 pr-4 py-2.5 rounded-xl border border-transparent focus:border-white/[0.12] focus:bg-white/[0.09] focus:outline-none transition-all duration-400 placeholder-zinc-500 text-white font-medium"
+            className="w-full bg-white/[0.06] hover:bg-white/[0.09] text-[13px] pl-10 pr-10 py-2.5 rounded-xl border border-transparent focus:border-white/[0.12] focus:bg-white/[0.09] focus:outline-none transition-all duration-400 placeholder-zinc-500 text-white font-medium"
             style={{ transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
           />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')} 
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs apple-press"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 

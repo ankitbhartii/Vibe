@@ -30,8 +30,8 @@ map $final_client_ip $should_log {
 }
 
 # Rate limit zones
-# Limit requests to API generally: 10 requests per second
-limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+# Limit requests to API generally: 100 requests per minute per IP (Rate limit: 100 req/min per IP)
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/m;
 # Strict limit for triggering downloads: 1 request per minute (to prevent abuse)
 limit_req_zone $binary_remote_addr zone=download_limit:10m rate=1r/m;
 
