@@ -1,4 +1,4 @@
-import { getYTStreamUrl } from '@/utils/ytmusic'
+import { getYTStream } from '@/utils/ytmusic'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,22 +12,28 @@ export async function GET(request, { params }) {
     }
 
     console.log(`📡 Resolving YouTube stream for video ID: ${id}`)
-    const streamUrl = await getYTStreamUrl(id)
+    const result = await getYTStream(id)
 
-    if (!streamUrl) {
-      console.error(`❌ Could not resolve YouTube stream URL for: ${id}`)
-      return new Response('Stream URL could not be resolved', { status: 404 })
+    if (!result || !result.stream) {
+      console.error(`❌ Could not resolve YouTube stream for: ${id}`)
+      return new Response('Stream could not be resolved', { status: 404 })
     }
 
-    console.log(`🔗 Redirecting stream request to Google Video CDN: ${streamUrl.substring(0, 80)}...`)
+    console.log(`🔗 Streaming YouTube audio directly: mime=${result.mimeType}, size=${result.contentLength}`)
     
-    // Return a 307 redirect so the browser streams directly
-    return new Response(null, {
-      status: 307,
-      headers: {
-        'Location': streamUrl,
-        'Access-Control-Allow-Origin': '*'
-      }
+    const headers = {
+      'Content-Type': result.mimeType || 'audio/mp4',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=3600'
+    }
+    
+    if (result.contentLength) {
+      headers['Content-Length'] = String(result.contentLength)
+    }
+
+    return new Response(result.stream, {
+      status: 200,
+      headers
     })
   } catch (error) {
     console.error('❌ YouTube Music Play API route failure:', error)

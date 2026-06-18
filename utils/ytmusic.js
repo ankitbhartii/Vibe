@@ -1,6 +1,11 @@
-import { Innertube } from 'youtubei.js'
+import { Innertube, Platform } from 'youtubei.js'
 import { exec } from 'child_process'
 import util from 'util'
+
+// Configure signature decipher shim for Vercel and Node environments
+Platform.shim.eval = (code, env) => {
+  return new Function(code.output)();
+};
 
 const execPromise = util.promisify(exec)
 
@@ -73,22 +78,28 @@ export async function searchYTMusic(query, limit = 20) {
 }
 
 /**
- * Resolves the direct high-quality audio stream URL from YouTube using yt-dlp
+ * Resolves a web-standard ReadableStream for the direct audio content of a YouTube video
  */
-export async function getYTStreamUrl(videoId) {
+export async function getYTStream(videoId) {
   try {
-    console.log(`📡 Resolving YouTube stream URL for video ID: ${videoId} using yt-dlp...`)
-    const { stdout, stderr } = await execPromise(`yt-dlp -f bestaudio -g "${videoId}"`)
-    const url = stdout.trim()
-    if (!url) {
-      if (stderr) {
-        console.error(`❌ yt-dlp stderr: ${stderr}`)
-      }
-      return null
+    console.log(`📡 Resolving YouTube stream for video ID: ${videoId} using youtubei.js...`)
+    const yt = await getYtInstance()
+    const info = await yt.getInfo(videoId)
+    const format = info.chooseFormat({
+      type: 'audio',
+      quality: 'best'
+    })
+    const stream = await info.download({
+      type: 'audio',
+      quality: 'best'
+    })
+    return {
+      stream,
+      mimeType: format.mime_type,
+      contentLength: format.content_length
     }
-    return url
   } catch (err) {
-    console.error(`❌ yt-dlp failed to resolve stream for video ID: ${videoId}:`, err)
+    console.error(`❌ youtubei.js failed to resolve stream for video ID: ${videoId}:`, err)
     return null
   }
 }
