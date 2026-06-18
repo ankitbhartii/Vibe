@@ -1,0 +1,10 @@
+.env
+temp_downloads/
+music/
+navidrome_data/
+redis-bin/
+beets/
+streamrip/
+saavn-cli/
+__pycache__/
+*.pyc
