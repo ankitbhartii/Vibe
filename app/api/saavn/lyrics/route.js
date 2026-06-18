@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getSongLyrics } from '@/utils/saavn'
 
+const withTimeout = (promise, ms) => {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  return promise.finally(() => clearTimeout(timer))
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -10,10 +16,10 @@ export async function GET(request) {
 
     let data = { lyrics: '', copyright: '' }
 
-    // 1. Try JioSaavn first
+    // 1. Try JioSaavn first (with 4s timeout)
     if (id) {
       try {
-        const saavnData = await getSongLyrics(id)
+        const saavnData = await withTimeout(Promise.resolve(getSongLyrics(id)), 4000)
         if (saavnData && saavnData.lyrics && !saavnData.lyrics.includes('failure')) {
           data = saavnData
         }
@@ -37,11 +43,14 @@ export async function GET(request) {
         console.log(`🔍 LRCLIB Lookup: Querying lyrics for "${cleanTitle}" by "${cleanArtist}"`)
         const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}`
         
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 4000)
         const res = await fetch(url, {
+          signal: ctrl.signal,
           headers: {
             'User-Agent': 'VibeMusicPlayer/1.0 (contact: github.com/ankit)'
           }
-        })
+        }).finally(() => clearTimeout(timer))
 
         if (res.ok) {
           const lrcData = await res.json()

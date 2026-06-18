@@ -177,91 +177,95 @@ export default function GlobalPlayer() {
     transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
   }
 
-  // ── Lyrics Fetching: dual-source (JioSaavn API → LRCLIB enrichment) ──
+  // ── Lyrics Fetching: parallel race between LRCLIB (fast CDN) and JioSaavn server ──
   useEffect(() => {
-    if (activeOverlayTab === 'lyrics' && currentSong) {
-      const fetchLyrics = async () => {
-        setLyricsLoading(true)
-        setLyricsData({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
-        try {
-          // Primary: Server-side route (JioSaavn → LRCLIB fallback)
-          const params = new URLSearchParams()
-          if (currentSong.rawId) params.set('id', currentSong.rawId)
-          if (currentSong.title) params.set('title', currentSong.title)
-          if (currentSong.artist) params.set('artist', currentSong.artist)
+    if (activeOverlayTab !== 'lyrics' || !currentSong) return
 
-          const res = await fetch(`/api/saavn/lyrics?${params.toString()}`)
-          if (res.ok) {
-            const serverData = await res.json()
+    let cancelled = false
+    setLyricsLoading(true)
+    setLyricsData({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
 
-            // If server returned synced lyrics, great — use them
-            if (serverData.syncedLyrics) {
-              setLyricsData({
-                ...serverData,
-                lyricsProvider: serverData.copyright?.includes('LRCLIB') ? 'LRCLIB' : 'JioSaavn'
-              })
-              setLyricsLoading(false)
-              return
-            }
+    const cleanTitle = (currentSong.title || '').replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim()
+    const cleanArtist = (currentSong.artist || '').split(/,|\b&\b|\bvs\b|\bfeat\b/i)[0].trim()
 
-            // Secondary: Try LRCLIB directly for richer synced match (with album & duration)
-            if (currentSong.title && currentSong.artist) {
-              try {
-                const cleanTitle = currentSong.title.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim()
-                const cleanArtist = currentSong.artist.split(/,|\b&\b|\bvs\b|\bfeat\b/i)[0].trim()
-                const lrcParams = new URLSearchParams({
-                  artist_name: cleanArtist,
-                  track_name: cleanTitle,
-                })
-                if (currentSong.album) lrcParams.set('album_name', currentSong.album)
-                const lrcRes = await fetch(`https://lrclib.net/api/get?${lrcParams.toString()}`, {
-                  headers: { 'User-Agent': 'VibeMusicPlayer/1.0' }
-                })
-                if (lrcRes.ok) {
-                  const lrcData = await lrcRes.json()
-                  if (lrcData?.syncedLyrics) {
-                    setLyricsData({
-                      lyrics: lrcData.plainLyrics?.replace(/\r?\n/g, '<br>') || '',
-                      syncedLyrics: lrcData.syncedLyrics,
-                      copyright: lrcData.albumName ? `From: ${lrcData.albumName} · LRCLIB` : 'LRCLIB',
-                      lyricsProvider: 'LRCLIB'
-                    })
-                    setLyricsLoading(false)
-                    return
-                  } else if (lrcData?.plainLyrics) {
-                    setLyricsData({
-                      lyrics: lrcData.plainLyrics.replace(/\r?\n/g, '<br>'),
-                      syncedLyrics: '',
-                      copyright: 'LRCLIB',
-                      lyricsProvider: 'LRCLIB'
-                    })
-                    setLyricsLoading(false)
-                    return
-                  }
-                }
-              } catch (lrcErr) {
-                console.warn('LRCLIB direct fetch failed:', lrcErr)
-              }
-            }
-
-            // Use server data as final fallback (may be plain JioSaavn lyrics)
-            setLyricsData({
-              ...serverData,
-              lyricsProvider: serverData.lyrics ? 'JioSaavn' : ''
-            })
-          } else {
-            setLyricsData({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
-          }
-        } catch (err) {
-          console.error('Lyrics fetch error:', err)
-          setLyricsData({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
-        } finally {
-          setLyricsLoading(false)
-        }
+    // ── Source A: LRCLIB direct (fastest — no backend hop) ──
+    const lrcFetch = async () => {
+      const lrcParams = new URLSearchParams({ artist_name: cleanArtist, track_name: cleanTitle })
+      if (currentSong.album) lrcParams.set('album_name', currentSong.album)
+      const r = await fetch(`https://lrclib.net/api/get?${lrcParams}`, {
+        headers: { 'User-Agent': 'VibeMusicPlayer/1.0' }
+      })
+      if (!r.ok) throw new Error('LRCLIB miss')
+      const d = await r.json()
+      if (!d?.syncedLyrics && !d?.plainLyrics) throw new Error('LRCLIB no lyrics')
+      return {
+        lyrics: d.plainLyrics?.replace(/\r?\n/g, '<br>') || '',
+        syncedLyrics: d.syncedLyrics || '',
+        copyright: d.albumName ? `${d.albumName} · LRCLIB` : 'LRCLIB',
+        lyricsProvider: 'LRCLIB',
+        hasSynced: !!d.syncedLyrics
       }
-      fetchLyrics()
     }
-  }, [activeOverlayTab, currentSong?.rawId, currentSong?.title, currentSong?.artist])
+
+    // ── Source B: JioSaavn server route (may have exclusive Hindi/regional synced lyrics) ──
+    const saavnFetch = async () => {
+      const params = new URLSearchParams()
+      if (currentSong.rawId) params.set('id', currentSong.rawId)
+      if (currentSong.title) params.set('title', currentSong.title)
+      if (currentSong.artist) params.set('artist', currentSong.artist)
+      const r = await fetch(`/api/saavn/lyrics?${params}`)
+      if (!r.ok) throw new Error('Saavn miss')
+      const d = await r.json()
+      if (!d?.lyrics && !d?.syncedLyrics) throw new Error('Saavn no lyrics')
+      return {
+        ...d,
+        lyricsProvider: d.copyright?.includes('LRCLIB') ? 'LRCLIB' : 'JioSaavn',
+        hasSynced: !!d.syncedLyrics
+      }
+    }
+
+    // Race: use whoever returns synced lyrics first; fall back to plain
+    const resolve = (results) => {
+      if (cancelled) return
+      // Prefer result with synced lyrics
+      const synced = results.find(r => r.status === 'fulfilled' && r.value?.hasSynced)
+      if (synced) {
+        setLyricsData(synced.value)
+        setLyricsLoading(false)
+        return
+      }
+      // Fall back to any result with any lyrics
+      const anyLyrics = results.find(r => r.status === 'fulfilled' && (r.value?.lyrics || r.value?.syncedLyrics))
+      if (anyLyrics) {
+        setLyricsData(anyLyrics.value)
+      }
+      setLyricsLoading(false)
+    }
+
+    // Fire both in parallel and resolve as soon as we have a synced result
+    let settled = 0
+    const results = [null, null]
+    const check = () => {
+      if (cancelled) return
+      settled++
+      if (settled === 2) { resolve(results); return }
+      // If the one that just finished has synced lyrics, apply immediately without waiting for the other
+      const done = results.find(r => r !== null)
+      if (done?.status === 'fulfilled' && done.value?.hasSynced) {
+        resolve([done])
+      }
+    }
+
+    lrcFetch()
+      .then(v => { results[0] = { status: 'fulfilled', value: v }; check() })
+      .catch(() => { results[0] = { status: 'rejected' }; check() })
+
+    saavnFetch()
+      .then(v => { results[1] = { status: 'fulfilled', value: v }; check() })
+      .catch(() => { results[1] = { status: 'rejected' }; check() })
+
+    return () => { cancelled = true }
+  }, [activeOverlayTab, currentSong?.rawId, currentSong?.title, currentSong?.artist, currentSong?.album])
 
   // Fetch recommendations when the queue tab is opened or currentSong changes
   useEffect(() => {
