@@ -156,7 +156,6 @@ const TRENDING_PODCASTS = [
 export default function MainDashboardPage() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
   const [searchStatus, setSearchStatus] = useState('')
   const [playlistMenuOpenId, setPlaylistMenuOpenId] = useState(null)
   
@@ -164,10 +163,15 @@ export default function MainDashboardPage() {
   const [saavnHome, setSaavnHome] = useState({ new_trending: [], new_albums: [], top_playlists: [], charts: [] })
   const [saavnHomeLoading, setSaavnHomeLoading] = useState(true)
   
+  // YouTube Music trending row states
+  const [ytTrending, setYtTrending] = useState([])
+  const [ytTrendingLoading, setYtTrendingLoading] = useState(false)
+
   // Search results states
   const [searchResults, setSearchResults] = useState(null)
+  const [ytSearchResults, setYtSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
-  const [activeSearchTab, setActiveSearchTab] = useState('songs') // 'songs' | 'albums' | 'playlists'
+  const [activeSearchTab, setActiveSearchTab] = useState('songs') // 'songs' | 'albums' | 'playlists' | 'ytmusic'
   
   // Album / Playlist Detail View states
   const [selectedSaavnItem, setSelectedSaavnItem] = useState(null) // { id, type, title, image_url, artist, subtitle }
@@ -196,7 +200,8 @@ export default function MainDashboardPage() {
     preloadTrack,
     history, savedAlbums, savedArtists, savedPodcasts,
     toggleSaveAlbum, toggleFollowArtist, toggleSubscribePodcast,
-    addToQueue
+    addToQueue,
+    searchQuery, setSearchQuery
   } = useAudio()
   
   const supabase = createClient()
@@ -231,8 +236,29 @@ export default function MainDashboardPage() {
     }
   }
 
+  // 2b. Fetch YouTube Music Trending hits for dashboard
+  const fetchYtTrending = async () => {
+    setYtTrendingLoading(true)
+    try {
+      const response = await fetch('/api/ytmusic/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'trending hits' })
+      })
+      if (response.ok) {
+        const result = await response.json()
+        setYtTrending(result.songs || [])
+      }
+    } catch (error) {
+      console.error("YouTube Music trending fetch error:", error)
+    } finally {
+      setYtTrendingLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchSaavnHome()
+    fetchYtTrending()
   }, [])
 
   // 3. Fetch Library Content (Liked Songs or Custom Playlists)
@@ -399,44 +425,53 @@ export default function MainDashboardPage() {
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults(null)
+      setYtSearchResults([])
       setSearchStatus('')
       setSearchLoading(false)
       return
     }
 
-    setSearchStatus('⚡ Searching JioSaavn online catalogs...')
+    setSearchStatus('⚡ Searching online catalogs...')
     setSearchLoading(true)
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        const response = await fetch('/api/saavn/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: searchQuery })
-        })
+        // Fetch JioSaavn and YouTube Music search results in parallel
+        const [saavnRes, ytRes] = await Promise.all([
+          fetch('/api/saavn/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: searchQuery })
+          }).then(r => r.ok ? r.json() : { songs: [], albums: [], playlists: [] }),
+          fetch('/api/ytmusic/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: searchQuery })
+          }).then(r => r.ok ? r.json() : { songs: [] })
+        ])
         
-        if (response.ok) {
-          const result = await response.json()
-          setSearchResults(result)
-          
-          const totalMatches = (result.songs?.length || 0) + (result.albums?.length || 0) + (result.playlists?.length || 0)
-          if (totalMatches === 0) {
-            setSearchStatus('❌ No records matched this query.')
-          } else {
-            setSearchStatus('')
-            // Default to song results if they exist, otherwise albums
-            if ((result.songs?.length || 0) === 0 && (result.albums?.length || 0) > 0) {
-              setActiveSearchTab('albums')
-            } else {
-              setActiveSearchTab('songs')
-            }
-          }
+        setSearchResults(saavnRes)
+        setYtSearchResults(ytRes.songs || [])
+        
+        const totalMatches = (saavnRes.songs?.length || 0) + (saavnRes.albums?.length || 0) + (saavnRes.playlists?.length || 0) + (ytRes.songs?.length || 0)
+        if (totalMatches === 0) {
+          setSearchStatus('❌ No records matched this query.')
         } else {
-          setSearchStatus('❌ Search failed.')
+          setSearchStatus('')
+          // Default to JioSaavn songs if present, else YT Music, else albums
+          if ((saavnRes.songs?.length || 0) > 0) {
+            setActiveSearchTab('songs')
+          } else if ((ytRes.songs?.length || 0) > 0) {
+            setActiveSearchTab('ytmusic')
+          } else if ((saavnRes.albums?.length || 0) > 0) {
+            setActiveSearchTab('albums')
+          } else {
+            setActiveSearchTab('playlists')
+          }
         }
       } catch (err) {
         console.error("Search API error:", err)
-        setSearchStatus('❌ Failed to establish cross-origin stream channel.')
+        setSearchStatus('❌ Failed to establish search stream channels.')
       } finally {
         setSearchLoading(false)
       }
@@ -774,26 +809,30 @@ export default function MainDashboardPage() {
             )}
           </div>
         ) : searchQuery.trim() ? (
-          
-          // ================== SEARCH RESULTS TABS ==================
           <div className="flex flex-col gap-6 animate-fade-in">
             {/* Tab controls */}
-            <div className="flex gap-2 border-b border-zinc-900 pb-2">
+            <div className="flex gap-2 border-b border-zinc-900 pb-2 overflow-x-auto scrollbar-none">
               <button 
                 onClick={() => setActiveSearchTab('songs')}
-                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'songs' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'songs' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
                 🎵 Songs ({(searchResults?.songs || []).length})
               </button>
               <button 
+                onClick={() => setActiveSearchTab('ytmusic')}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'ytmusic' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
+              >
+                🎥 YouTube Music ({ytSearchResults.length})
+              </button>
+              <button 
                 onClick={() => setActiveSearchTab('albums')}
-                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'albums' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'albums' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
                 💽 Albums ({(searchResults?.albums || []).length})
               </button>
               <button 
                 onClick={() => setActiveSearchTab('playlists')}
-                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'playlists' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'playlists' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
                 📁 Playlists ({(searchResults?.playlists || []).length})
               </button>
@@ -805,24 +844,179 @@ export default function MainDashboardPage() {
               <div className="mt-2">
                 {/* 1. SONGS TAB */}
                 {activeSearchTab === 'songs' && (
-                  <div className="flex flex-col gap-1.5">
-                    {(searchResults?.songs || []).length === 0 ? (
+                  <div className="flex flex-col gap-6">
+                    {/* JioSaavn Songs Section */}
+                    {((searchResults?.songs || []).length > 0) && (
+                      <div className="flex flex-col gap-3">
+                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-1">🎵 JioSaavn Songs</h3>
+                        <div className="flex flex-col gap-1">
+                          {searchResults.songs.map((song) => {
+                            const isCurrentTrack = currentSong?.id === song.id
+                            return (
+                              <div 
+                                key={song.id} 
+                                onClick={() => playTrack(song, searchResults.songs)}
+                                className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                              >
+                                <div className="flex items-center gap-4 min-w-0 flex-1">
+                                  <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
+                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 shrink-0 pl-3">
+                                  <span className="text-[11px] text-zinc-500 font-mono">{formatDuration(song.duration)}</span>
+                                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
+                                      className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                                      title="Add to Queue"
+                                    >
+                                      + QUEUE
+                                    </button>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); toggleFavorite(song, song.is_favorite) }} 
+                                      className={`text-xs p-1 hover:scale-115 transition shrink-0 ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                      title="Favorite"
+                                    >
+                                      💚
+                                    </button>
+                                    {customPlaylists?.length > 0 && (
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
+                                        className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                        title="Add to Playlist"
+                                      >
+                                        ➕
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {playlistMenuOpenId === song.id && (
+                                  <div className="absolute right-12 mt-12 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl py-1 w-40 z-30 text-left text-[11px] max-h-28 overflow-y-auto custom-scrollbar">
+                                    <p className="text-zinc-500 font-bold font-mono px-2.5 py-1 border-b border-zinc-900 uppercase text-[8px] tracking-wider">Save to Playlist</p>
+                                    {customPlaylists.map((p) => (
+                                      <button 
+                                        key={p.id}
+                                        onClick={(e) => handleAddToPlaylist(e, song, p.id)}
+                                        className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
+                                      >
+                                        📁 {p.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* YouTube Music Tracks Section */}
+                    {(ytSearchResults.length > 0) && (
+                      <div className="flex flex-col gap-3">
+                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-1">🎥 YouTube Music Tracks</h3>
+                        <div className="flex flex-col gap-1">
+                          {ytSearchResults.map((song) => {
+                            const isCurrentTrack = currentSong?.id === song.id
+                            return (
+                              <div 
+                                key={song.id} 
+                                onClick={() => playTrack(song, ytSearchResults)}
+                                className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                              >
+                                <div className="flex items-center gap-4 min-w-0 flex-1">
+                                  {song.image_url ? (
+                                    <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                                  ) : (
+                                    <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center rounded-lg shrink-0">🎥</div>
+                                  )}
+                                  <div className="flex flex-col min-w-0">
+                                    <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
+                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • YouTube Stream</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 shrink-0 pl-3">
+                                  <span className="text-[11px] text-zinc-500 font-mono">{formatDuration(song.duration)}</span>
+                                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
+                                      className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                                      title="Add to Queue"
+                                    >
+                                      + QUEUE
+                                    </button>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); toggleFavorite(song, song.is_favorite) }} 
+                                      className={`text-xs p-1 hover:scale-115 transition shrink-0 ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                      title="Favorite"
+                                    >
+                                      💚
+                                    </button>
+                                    {customPlaylists?.length > 0 && (
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
+                                        className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                        title="Add to Playlist"
+                                      >
+                                        ➕
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {playlistMenuOpenId === song.id && (
+                                  <div className="absolute right-12 mt-12 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl py-1 w-40 z-30 text-left text-[11px] max-h-28 overflow-y-auto custom-scrollbar">
+                                    <p className="text-zinc-500 font-bold font-mono px-2.5 py-1 border-b border-zinc-900 uppercase text-[8px] tracking-wider">Save to Playlist</p>
+                                    {customPlaylists.map((p) => (
+                                      <button 
+                                        key={p.id}
+                                        onClick={(e) => handleAddToPlaylist(e, song, p.id)}
+                                        className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
+                                      >
+                                        📁 {p.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {((searchResults?.songs || []).length === 0 && ytSearchResults.length === 0) && (
                       <p className="text-xs text-zinc-600">No songs found.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* 1b. YOUTUBE MUSIC TAB */}
+                {activeSearchTab === 'ytmusic' && (
+                  <div className="flex flex-col gap-1.5">
+                    {ytSearchResults.length === 0 ? (
+                      <p className="text-xs text-zinc-600">No YouTube Music tracks found.</p>
                     ) : (
                       <div className="flex flex-col gap-1">
-                        {searchResults.songs.map((song) => {
+                        {ytSearchResults.map((song) => {
                           const isCurrentTrack = currentSong?.id === song.id
                           return (
                             <div 
                               key={song.id} 
-                              onClick={() => playTrack(song, searchResults.songs)}
+                              onClick={() => playTrack(song, ytSearchResults)}
                               className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                             >
                               <div className="flex items-center gap-4 min-w-0 flex-1">
-                                <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                                {song.image_url ? (
+                                  <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                                ) : (
+                                  <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center rounded-lg shrink-0">🎥</div>
+                                )}
                                 <div className="flex flex-col min-w-0">
                                   <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                                  <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
+                                  <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • YouTube Stream</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -830,7 +1024,7 @@ export default function MainDashboardPage() {
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button 
                                     onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
-                                    className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                                    className="text-[10px] bg-zinc-850/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
                                     title="Add to Queue"
                                   >
                                     + QUEUE
@@ -1492,6 +1686,49 @@ export default function MainDashboardPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* 1.5 YOUTUBE MUSIC TRENDING ROW */}
+                {ytTrendingLoading ? (
+                  <div className="flex flex-col gap-4">
+                    <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎥 YouTube Music Trending</h2>
+                    <div className="p-8 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING YT MUSIC HITS...</div>
+                  </div>
+                ) : ytTrending.length > 0 && (
+                  <div className="flex flex-col gap-4">
+                    <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎥 YouTube Music Trending</h2>
+                    <div className="flex overflow-x-auto gap-5 pb-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+                      {ytTrending.map((song, index) => (
+                        <div 
+                          key={`${song.id}-${index}`} 
+                          onClick={() => playTrack(song, ytTrending)}
+                          className="w-36 md:w-40 flex flex-col gap-2 group cursor-pointer shrink-0"
+                        >
+                          <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)] animate-float-in apple-card-hover">
+                            {song.image_url ? (
+                              <img src={song.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
+                                🎥
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                              <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
+                                <span className="text-sm font-bold">▶</span>
+                              </div>
+                            </div>
+                            <div className="absolute bottom-2.5 left-2.5 bg-black/80 border border-zinc-800/80 text-[8px] font-bold font-mono px-2 py-0.5 rounded-full text-[#fa2d48] opacity-90">
+                              🎥 YouTube
+                            </div>
+                          </div>
+                          <div className="flex flex-col px-1">
+                            <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{song.title}</h3>
+                            <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{song.artist}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. NEW ALBUMS ROW */}
                 <div className="flex flex-col gap-4">

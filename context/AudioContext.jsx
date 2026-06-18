@@ -15,6 +15,7 @@ export function AudioProvider({ children }) {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null)
   const [queue, setQueue] = useState([])
   const [autoplayEnabled, setAutoplayEnabled] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const [history, setHistory] = useState([])
   const [savedAlbums, setSavedAlbums] = useState([])
@@ -492,7 +493,8 @@ export function AudioProvider({ children }) {
       toggleSaveAlbum, toggleFollowArtist, toggleSubscribePodcast,
       queue, setQueue, autoplayEnabled, setAutoplayEnabled,
       playNext, addToQueue, removeFromQueue, clearQueue,
-      playlist, setPlaylist
+      playlist, setPlaylist,
+      searchQuery, setSearchQuery
     }}>
       {children}
     </AudioContext.Provider>
