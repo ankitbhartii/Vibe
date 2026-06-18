@@ -553,40 +553,45 @@ export default function MainDashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-6 text-zinc-600 font-bold text-xs font-mono h-full flex items-center justify-center animate-pulse bg-black min-h-screen">
-        ⚡ CONNECTING VIBE MUSIC NETWORKS...
+      <div className="p-8 h-full flex flex-col items-center justify-center bg-black min-h-screen gap-6">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fa2d48] to-[#d91e36] flex items-center justify-center text-white font-black text-xl shadow-lg" style={{ animation: 'breathe 2s ease-in-out infinite' }}>V</div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="shimmer-skeleton w-48 h-3" />
+          <div className="shimmer-skeleton w-32 h-2" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-4 md:p-8 flex flex-col gap-6 animate-in fade-in duration-300 bg-black min-h-screen text-[#f4f4f5]">
+    <div className="p-4 md:p-7 flex flex-col gap-6 bg-black min-h-screen text-[#f5f5f7] animate-fade-in">
       
       {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-900 pb-5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/[0.04] pb-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white glow-text">Vibe Music Player</h1>
-          <p className="text-xs text-[#1db954] font-bold uppercase tracking-widest mt-1.5 font-mono">{getHeaderTitle()}</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Vibe Music</h1>
+          <p className="text-[11px] text-[#fa2d48] font-semibold uppercase tracking-[0.15em] mt-1">{getHeaderTitle()}</p>
         </div>
         {isAdmin && (
-          <Link href="/admin" className="bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white font-bold text-xs py-2.5 px-5 rounded-full transition-all shadow-md shrink-0 glow-border">
-            ⚙️ Open Upload Center
+          <Link href="/admin" className="bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.06] text-zinc-300 hover:text-white font-semibold text-xs py-2.5 px-5 rounded-full apple-press shrink-0" style={{ transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
+            ⚙️ Upload Center
           </Link>
         )}
       </div>
 
       {/* COMPACT SEARCH INPUT */}
-      <div className="relative w-full max-w-sm bg-zinc-950/80 border border-zinc-900 rounded-2xl px-4 py-2.5 flex items-center gap-3 focus-within:border-[#1db954]/50 focus-within:shadow-[0_0_15px_rgba(29,185,84,0.1)] transition-all">
-        <span className="text-zinc-600 text-sm">🔍</span>
+      <div className="relative w-full max-w-sm group">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm" style={{ transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>🔍</span>
         <input 
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search songs, albums, playlists..."
-          className="bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none w-full font-sans antialiased"
+          className="w-full bg-white/[0.05] hover:bg-white/[0.07] text-[13px] pl-10 pr-4 py-2.5 rounded-xl border border-transparent focus:border-white/[0.1] focus:bg-white/[0.07] focus:outline-none placeholder-zinc-600 text-white font-medium"
+          style={{ transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
         />
         {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className="text-zinc-600 hover:text-white text-xs px-0.5">✕</button>
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs apple-press">✕</button>
         )}
       </div>
 
@@ -600,7 +605,7 @@ export default function MainDashboardPage() {
         
         {/* ================== DETAILED ALBUM/PLAYLIST VIEW ================== */}
         {selectedSaavnItem ? (
-          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <div className="flex flex-col gap-6 animate-float-in">
             <button 
               onClick={() => setSelectedSaavnItem(null)} 
               className="flex items-center gap-2 text-zinc-400 hover:text-white text-xs font-bold transition-colors mb-2 w-max"
@@ -624,7 +629,7 @@ export default function MainDashboardPage() {
                   {saavnItemTracks.length > 0 && (
                     <button 
                       onClick={() => playTrack(saavnItemTracks[0], saavnItemTracks)}
-                      className="bg-[#1db954] hover:bg-[#22c55e] text-black font-extrabold text-xs py-3 px-8 rounded-full uppercase tracking-wider transition-all shadow-md transform hover:scale-105 active:scale-95 w-max mx-auto md:mx-0"
+                      className="bg-[#fa2d48] hover:bg-[#ff4466] text-black font-extrabold text-xs py-3 px-8 rounded-full uppercase tracking-wider transition-all shadow-md transform hover:scale-105 active:scale-95 w-max mx-auto md:mx-0"
                     >
                       ▶ Play {selectedSaavnItem.type === 'artist' ? 'Top Songs' : selectedSaavnItem.type === 'radio' ? 'Radio Mix' : 'Content'}
                     </button>
@@ -659,7 +664,7 @@ export default function MainDashboardPage() {
 
             {/* Tracklist table */}
             <div className="flex flex-col gap-1.5 mt-2 bg-zinc-950/20 rounded-2xl border border-zinc-900/50 p-4">
-              <h3 className="text-xs font-extrabold font-mono text-zinc-500 uppercase tracking-wider px-2 border-b border-zinc-900 pb-2 mb-2">Tracklist</h3>
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2 border-b border-zinc-900 pb-2 mb-2">Tracklist</h3>
               {saavnItemLoading ? (
                 <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING ALBUM TRACKS...</div>
               ) : saavnItemTracks.length === 0 ? (
@@ -675,12 +680,12 @@ export default function MainDashboardPage() {
                         className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                       >
                         <div className="flex items-center gap-4 min-w-0 flex-1">
-                          <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#1db954]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
+                          <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
                             {isCurrentTrack && isPlaying ? '🔊' : index + 1}
                           </span>
                           <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
                           <div className="flex flex-col min-w-0">
-                            <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#1db954]' : 'text-zinc-100'}`}>{song.title}</span>
+                            <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
                             <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist}</span>
                           </div>
                         </div>
@@ -691,7 +696,7 @@ export default function MainDashboardPage() {
                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 
                               onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
-                              className="text-[10px] bg-zinc-805/80 hover:bg-[#1db954] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                              className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
                               title="Add to Queue"
                             >
                               + QUEUE
@@ -723,7 +728,7 @@ export default function MainDashboardPage() {
                               <button 
                                 key={p.id}
                                 onClick={(e) => handleAddToPlaylist(e, song, p.id)}
-                                className="w-full text-zinc-300 hover:text-[#1db954] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
+                                className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
                               >
                                 📁 {p.name}
                               </button>
@@ -739,27 +744,27 @@ export default function MainDashboardPage() {
 
             {/* Top Albums if Artist */}
             {selectedSaavnItem.type === 'artist' && artistAlbums.length > 0 && (
-              <div className="flex flex-col gap-4 mt-8 animate-in fade-in duration-500">
-                <h3 className="text-sm font-extrabold font-mono text-zinc-400 uppercase tracking-wider px-2">Top Albums</h3>
+              <div className="flex flex-col gap-4 mt-8 animate-float-in">
+                <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider px-2">Top Albums</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                   {artistAlbums.map((album, index) => (
-                    <div key={`${album.id}-${index}`} onClick={() => fetchItemDetails(album)} className="flex flex-col gap-2.5 group cursor-pointer relative">
+                    <div key={`${album.id}-${index}`} onClick={() => fetchItemDetails(album)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover">
                       <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                         {album.image_url ? (
-                          <img src={album.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                          <img src={album.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                             AL
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                           <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                             <span className="text-sm font-bold">▶</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col px-1">
-                        <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{album.title}</h3>
+                        <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{album.title}</h3>
                         <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{album.year || 'Album'}</p>
                       </div>
                     </div>
@@ -771,24 +776,24 @@ export default function MainDashboardPage() {
         ) : searchQuery.trim() ? (
           
           // ================== SEARCH RESULTS TABS ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             {/* Tab controls */}
             <div className="flex gap-2 border-b border-zinc-900 pb-2">
               <button 
                 onClick={() => setActiveSearchTab('songs')}
-                className={`py-2 px-5 text-xs font-extrabold font-mono uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'songs' ? 'bg-[#1db954]/10 text-[#1db954] border border-[#1db954]/20' : 'text-zinc-500 hover:text-white'}`}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'songs' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
                 🎵 Songs ({(searchResults?.songs || []).length})
               </button>
               <button 
                 onClick={() => setActiveSearchTab('albums')}
-                className={`py-2 px-5 text-xs font-extrabold font-mono uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'albums' ? 'bg-[#1db954]/10 text-[#1db954] border border-[#1db954]/20' : 'text-zinc-500 hover:text-white'}`}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'albums' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
                 💽 Albums ({(searchResults?.albums || []).length})
               </button>
               <button 
                 onClick={() => setActiveSearchTab('playlists')}
-                className={`py-2 px-5 text-xs font-extrabold font-mono uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'playlists' ? 'bg-[#1db954]/10 text-[#1db954] border border-[#1db954]/20' : 'text-zinc-500 hover:text-white'}`}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition ${activeSearchTab === 'playlists' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
                 📁 Playlists ({(searchResults?.playlists || []).length})
               </button>
@@ -816,7 +821,7 @@ export default function MainDashboardPage() {
                               <div className="flex items-center gap-4 min-w-0 flex-1">
                                 <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
                                 <div className="flex flex-col min-w-0">
-                                  <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#1db954]' : 'text-zinc-100'}`}>{song.title}</span>
+                                  <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
                                   <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
                                 </div>
                               </div>
@@ -825,7 +830,7 @@ export default function MainDashboardPage() {
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button 
                                     onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
-                                    className="text-[10px] bg-zinc-805/80 hover:bg-[#1db954] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                                    className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
                                     title="Add to Queue"
                                   >
                                     + QUEUE
@@ -855,7 +860,7 @@ export default function MainDashboardPage() {
                                     <button 
                                       key={p.id}
                                       onClick={(e) => handleAddToPlaylist(e, song, p.id)}
-                                      className="w-full text-zinc-300 hover:text-[#1db954] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
+                                      className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
                                     >
                                       📁 {p.name}
                                     </button>
@@ -877,23 +882,23 @@ export default function MainDashboardPage() {
                       <p className="text-xs text-zinc-600 col-span-full">No albums found.</p>
                     ) : (
                       searchResults.albums.map((album, index) => (
-                        <div key={`${album.id}-${index}`} onClick={() => fetchItemDetails(album)} className="flex flex-col gap-2.5 group cursor-pointer relative">
+                        <div key={`${album.id}-${index}`} onClick={() => fetchItemDetails(album)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover">
                           <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                             {album.image_url ? (
-                              <img src={album.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                              <img src={album.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                                 {album.title ? album.title.substring(0, 2).toUpperCase() : 'AL'}
                               </div>
                             )}
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                                 <span className="text-sm font-bold">▶</span>
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col px-1">
-                            <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{album.title}</h3>
+                            <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{album.title}</h3>
                             <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{album.subtitle}</p>
                           </div>
                         </div>
@@ -909,23 +914,23 @@ export default function MainDashboardPage() {
                       <p className="text-xs text-zinc-600 col-span-full">No playlists found.</p>
                     ) : (
                       searchResults.playlists.map((pl, index) => (
-                        <div key={`${pl.id}-${index}`} onClick={() => fetchItemDetails(pl)} className="flex flex-col gap-2.5 group cursor-pointer relative">
+                        <div key={`${pl.id}-${index}`} onClick={() => fetchItemDetails(pl)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover">
                           <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                             {pl.image_url ? (
-                              <img src={pl.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                              <img src={pl.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                                 {pl.title ? pl.title.substring(0, 2).toUpperCase() : 'PL'}
                               </div>
                             )}
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                                 <span className="text-sm font-bold">▶</span>
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col px-1">
-                            <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{pl.title}</h3>
+                            <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{pl.title}</h3>
                             <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{pl.subtitle}</p>
                           </div>
                         </div>
@@ -939,30 +944,30 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'top_charts' ? (
           
           // ================== TOP CHARTS VIEW ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📈 Top Charts</h2>
             {saavnHomeLoading ? (
               <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING CHARTS...</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {(saavnHome.charts || []).map((item, index) => (
-                  <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative animate-fade-in">
+                  <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover animate-float-in apple-card-hover">
                     <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                       {item.image_url ? (
-                        <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                        <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                           CH
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                           <span className="text-sm font-bold">▶</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col px-1">
-                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                       <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                     </div>
                   </div>
@@ -973,30 +978,30 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'top_playlists' ? (
           
           // ================== TOP PLAYLISTS VIEW ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📁 Featured Playlists</h2>
             {saavnHomeLoading ? (
               <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING PLAYLISTS...</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {(saavnHome.top_playlists || []).map((item, index) => (
-                  <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative animate-fade-in">
+                  <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover animate-float-in apple-card-hover">
                     <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                       {item.image_url ? (
-                        <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                        <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                           PL
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                           <span className="text-sm font-bold">▶</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col px-1">
-                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                       <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                     </div>
                   </div>
@@ -1007,7 +1012,7 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'top_artists' ? (
           
           // ================== TOP ARTISTS VIEW ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">👤 Popular Artists</h2>
             {topArtistsLoading ? (
               <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING POPULAR ARTISTS...</div>
@@ -1019,24 +1024,24 @@ export default function MainDashboardPage() {
                   <div 
                     key={`${artist.id}-${index}`} 
                     onClick={() => fetchItemDetails({ id: artist.id, type: 'artist', title: artist.title || artist.name, image_url: artist.image_url })} 
-                    className="flex flex-col gap-2.5 group cursor-pointer relative"
+                    className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover"
                   >
                     <div className="w-full aspect-square rounded-full relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                       {artist.image_url ? (
-                        <img src={artist.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                        <img src={artist.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                           {(artist.title || artist.name || '').substring(0, 2).toUpperCase()}
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
+                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                           <span className="text-sm font-bold">▶</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col px-1 text-center">
-                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{artist.title || artist.name}</h3>
+                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{artist.title || artist.name}</h3>
                       <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">Artist</p>
                     </div>
                   </div>
@@ -1047,9 +1052,9 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'podcasts' ? (
           
           // ================== PODCASTS & AUDIOBOOKS VIEW ==================
-          <div className="flex flex-col gap-8 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-8 animate-fade-in">
             {/* Podcast search input */}
-            <div className="relative w-full max-w-sm bg-zinc-950/80 border border-zinc-900 rounded-2xl px-4 py-2.5 flex items-center gap-3 focus-within:border-[#1db954]/50 focus-within:shadow-[0_0_15px_rgba(29,185,84,0.1)] transition-all">
+            <div className="relative w-full max-w-sm bg-zinc-950/80 border border-zinc-900 rounded-2xl px-4 py-2.5 flex items-center gap-3 focus-within:border-[#fa2d48]/50 focus-within:shadow-[0_0_15px_rgba(29,185,84,0.1)] transition-all">
               <span className="text-zinc-600 text-sm">🎙️</span>
               <input 
                 type="text"
@@ -1074,23 +1079,23 @@ export default function MainDashboardPage() {
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                     {podcastSearchResults.map((item, index) => (
-                      <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative animate-fade-in">
+                      <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover animate-float-in apple-card-hover">
                         <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                           {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                            <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                               🎙️
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                               <span className="text-sm font-bold">▶</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex flex-col px-1">
-                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                           <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                         </div>
                       </div>
@@ -1106,23 +1111,23 @@ export default function MainDashboardPage() {
                   <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎙️ All Podcasts</h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                     {TRENDING_PODCASTS.map((item, index) => (
-                      <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative animate-fade-in">
+                      <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover animate-float-in apple-card-hover">
                         <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                           {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                            <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                               🎙️
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                               <span className="text-sm font-bold">▶</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex flex-col px-1">
-                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                           <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                         </div>
                       </div>
@@ -1140,23 +1145,23 @@ export default function MainDashboardPage() {
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                       {podcastsList.map((item, index) => (
-                        <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails({ id: item.id, type: item.type || 'playlist', title: item.title, image_url: item.image_url, subtitle: item.subtitle })} className="flex flex-col gap-2.5 group cursor-pointer relative animate-fade-in">
+                        <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails({ id: item.id, type: item.type || 'playlist', title: item.title, image_url: item.image_url, subtitle: item.subtitle })} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover animate-float-in apple-card-hover">
                           <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                             {item.image_url ? (
-                              <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                              <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                                 🎙️
                               </div>
                             )}
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                                 <span className="text-sm font-bold">▶</span>
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col px-1">
-                            <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                            <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                             <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                           </div>
                         </div>
@@ -1170,30 +1175,30 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'radio' ? (
           
           // ================== RADIO VIEW ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📻 JioSaavn Live Radio</h2>
             {saavnHomeLoading ? (
               <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING RADIO STATIONS...</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {(saavnHome.radio || []).map((item, index) => (
-                  <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative animate-fade-in">
+                  <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover animate-float-in apple-card-hover">
                     <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                       {item.image_url ? (
-                        <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                        <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                           📻
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                           <span className="text-sm font-bold">▶</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col px-1">
-                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                       <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                     </div>
                   </div>
@@ -1204,7 +1209,7 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'library_history' ? (
           
           // ================== USER HISTORY VIEW ==================
-          <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-4 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🕒 Recently Played</h2>
             {history.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
@@ -1222,12 +1227,12 @@ export default function MainDashboardPage() {
                       className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#1db954]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
+                        <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
                           {isCurrentTrack && isPlaying ? '🔊' : idx + 1}
                         </span>
                         <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
                         <div className="flex flex-col min-w-0">
-                          <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#1db954]' : 'text-zinc-100'}`}>{song.title}</span>
+                          <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
                           <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
                         </div>
                       </div>
@@ -1236,7 +1241,7 @@ export default function MainDashboardPage() {
                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
-                            className="text-[10px] bg-zinc-805/80 hover:bg-[#1db954] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                            className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
                             title="Add to Queue"
                           >
                             + QUEUE
@@ -1259,7 +1264,7 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'library_albums' ? (
           
           // ================== USER SAVED ALBUMS VIEW ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">💽 Saved Albums</h2>
             {savedAlbums.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
@@ -1269,23 +1274,23 @@ export default function MainDashboardPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {savedAlbums.map((album, index) => (
-                  <div key={`${album.id}-${index}`} onClick={() => fetchItemDetails(album)} className="flex flex-col gap-2.5 group cursor-pointer relative">
+                  <div key={`${album.id}-${index}`} onClick={() => fetchItemDetails(album)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover">
                     <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                       {album.image_url ? (
-                        <img src={album.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                        <img src={album.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                           AL
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                           <span className="text-sm font-bold">▶</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col px-1">
-                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{album.title}</h3>
+                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{album.title}</h3>
                       <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{album.artist || album.subtitle}</p>
                     </div>
                   </div>
@@ -1296,7 +1301,7 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'library_podcasts' ? (
           
           // ================== USER SAVED PODCASTS VIEW ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎙️ Subscribed Podcasts</h2>
             {savedPodcasts.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
@@ -1306,23 +1311,23 @@ export default function MainDashboardPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {savedPodcasts.map((podcast, index) => (
-                  <div key={`${podcast.id}-${index}`} onClick={() => fetchItemDetails({ id: podcast.id, type: 'playlist', title: podcast.title, image_url: podcast.image_url, subtitle: podcast.subtitle })} className="flex flex-col gap-2.5 group cursor-pointer relative">
+                  <div key={`${podcast.id}-${index}`} onClick={() => fetchItemDetails({ id: podcast.id, type: 'playlist', title: podcast.title, image_url: podcast.image_url, subtitle: podcast.subtitle })} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover">
                     <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                       {podcast.image_url ? (
-                        <img src={podcast.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                        <img src={podcast.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                           🎙️
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                           <span className="text-sm font-bold">▶</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col px-1">
-                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{podcast.title}</h3>
+                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{podcast.title}</h3>
                       <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{podcast.subtitle}</p>
                     </div>
                   </div>
@@ -1333,7 +1338,7 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'library_artists' ? (
           
           // ================== USER SAVED ARTISTS VIEW ==================
-          <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-6 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">👥 Followed Artists</h2>
             {savedArtists.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
@@ -1343,23 +1348,23 @@ export default function MainDashboardPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {savedArtists.map((artist, index) => (
-                  <div key={`${artist.id}-${index}`} onClick={() => fetchItemDetails({ id: artist.id, type: 'artist', title: artist.title, image_url: artist.image_url })} className="flex flex-col gap-2.5 group cursor-pointer relative">
+                  <div key={`${artist.id}-${index}`} onClick={() => fetchItemDetails({ id: artist.id, type: 'artist', title: artist.title, image_url: artist.image_url })} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover">
                     <div className="w-full aspect-square rounded-full relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                       {artist.image_url ? (
-                        <img src={artist.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                        <img src={artist.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                           {artist.title ? artist.title.substring(0, 2).toUpperCase() : 'AR'}
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
+                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                           <span className="text-sm font-bold">▶</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col px-1 text-center">
-                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{artist.title}</h3>
+                      <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{artist.title}</h3>
                       <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">Artist</p>
                     </div>
                   </div>
@@ -1370,7 +1375,7 @@ export default function MainDashboardPage() {
         ) : activeMenu === 'liked_songs' || activeMenu === 'custom_playlist' ? (
           
           // ================== LIBRARY VIEWS (LIKED SONGS OR PLAYLISTS) ==================
-          <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+          <div className="flex flex-col gap-4 animate-fade-in">
             <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">
               {activeMenu === 'liked_songs' ? "My Favorite Tracks" : "Playlist Collection"}
             </h2>
@@ -1392,12 +1397,12 @@ export default function MainDashboardPage() {
                       className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#1db954]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
+                        <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
                           {isCurrentTrack && isPlaying ? '🔊' : idx + 1}
                         </span>
                         <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
                         <div className="flex flex-col min-w-0">
-                          <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#1db954]' : 'text-zinc-100'}`}>{song.title}</span>
+                          <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
                           <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
                         </div>
                       </div>
@@ -1406,7 +1411,7 @@ export default function MainDashboardPage() {
                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
-                            className="text-[10px] bg-zinc-805/80 hover:bg-[#1db954] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                            className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
                             title="Add to Queue"
                           >
                             + QUEUE
@@ -1429,7 +1434,7 @@ export default function MainDashboardPage() {
         ) : (
           
           // ================== DEFAULT SAAVN HOME RECOMMENDATIONS ==================
-          <div className="flex flex-col gap-10 animate-in fade-in duration-500">
+          <div className="flex flex-col gap-10 animate-float-in">
             {saavnHomeLoading ? (
               <div className="p-16 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING RECOMMENDATION MODULES...</div>
             ) : (
@@ -1464,13 +1469,13 @@ export default function MainDashboardPage() {
                       >
                         <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                           {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                            <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                               {item.title ? item.title.substring(0, 2).toUpperCase() : 'TR'}
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                               <span className="text-sm font-bold">▶</span>
                             </div>
@@ -1480,7 +1485,7 @@ export default function MainDashboardPage() {
                           </div>
                         </div>
                         <div className="flex flex-col px-1">
-                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                           <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                         </div>
                       </div>
@@ -1496,20 +1501,20 @@ export default function MainDashboardPage() {
                       <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="w-36 md:w-40 flex flex-col gap-2 group cursor-pointer shrink-0">
                         <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                           {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                            <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                               {item.title ? item.title.substring(0, 2).toUpperCase() : 'AL'}
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                               <span className="text-sm font-bold">▶</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex flex-col px-1">
-                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                           <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                         </div>
                       </div>
@@ -1525,20 +1530,20 @@ export default function MainDashboardPage() {
                       <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="w-36 md:w-40 flex flex-col gap-2 group cursor-pointer shrink-0">
                         <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                           {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                            <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                               {item.title ? item.title.substring(0, 2).toUpperCase() : 'PL'}
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                               <span className="text-sm font-bold">▶</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex flex-col px-1">
-                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                           <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                         </div>
                       </div>
@@ -1554,20 +1559,20 @@ export default function MainDashboardPage() {
                       <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="w-36 md:w-40 flex flex-col gap-2 group cursor-pointer shrink-0">
                         <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
                           {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102" loading="lazy" />
+                            <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                               {item.title ? item.title.substring(0, 2).toUpperCase() : 'CH'}
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
                               <span className="text-sm font-bold">▶</span>
                             </div>
                           </div>
                         </div>
                         <div className="flex flex-col px-1">
-                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#1db954]">{item.title}</h3>
+                          <h3 className="font-bold text-[13px] tracking-tight truncate text-zinc-100 group-hover:text-[#fa2d48]">{item.title}</h3>
                           <p className="text-[11px] text-zinc-500 truncate mt-0.5 font-medium">{item.subtitle}</p>
                         </div>
                       </div>
