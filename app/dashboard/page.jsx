@@ -205,6 +205,10 @@ export default function MainDashboardPage() {
   useEffect(() => {
     async function checkUser() {
       const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        window.location.href = '/login'
+        return
+      }
       setUser(authUser)
       setLoading(false)
     }

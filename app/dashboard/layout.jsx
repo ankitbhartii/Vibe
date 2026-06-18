@@ -3,12 +3,22 @@ import React from 'react'
 import Header from '@/components/Header'
 import GlobalPlayer from '@/components/GlobalPlayer'
 import { useAudio } from '@/context/AudioContext'
+import { createClient } from '@/utils/supabase/client'
+import { useRouter } from 'next/navigation'
 
 export default function DashboardLayout({ children }) {
   const { 
     activeMenu, setActiveMenu, customPlaylists, 
     selectedPlaylistId, setSelectedPlaylistId, createNewPlaylist 
   } = useAudio()
+
+  const supabase = createClient()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#050505] text-[#f4f4f5] font-sans overflow-hidden select-none relative">
@@ -147,7 +157,7 @@ export default function DashboardLayout({ children }) {
           </div>
 
           {/* SECTION 3: PLAYLISTS */}
-          <div className="flex flex-col gap-1.5 flex-1 min-h-0">
+          <div className="flex flex-col gap-1.5">
             <h3 className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase px-3 mb-1 font-mono">Playlists</h3>
             
             <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 max-h-[160px]">
@@ -173,6 +183,16 @@ export default function DashboardLayout({ children }) {
               ➕ Create Playlist
             </button>
           </div>
+
+          {/* LOGOUT BUTTON */}
+          <div className="pt-4 border-t border-zinc-900 flex flex-col gap-2">
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold text-red-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent transition-all duration-200"
+            >
+              <span>🚪</span> Log Out
+            </button>
+          </div>
         </aside>
         
         {/* MAIN FEED SCROLL WORKSPACE WINDOW */}
@@ -196,6 +216,13 @@ export default function DashboardLayout({ children }) {
         >
           <span className="text-lg">💚</span>
           <span className="text-[9px] font-medium uppercase tracking-tight font-sans">Library</span>
+        </button>
+        <button 
+          onClick={handleLogout}
+          className="flex flex-col items-center gap-0.5 text-red-500 hover:text-red-400"
+        >
+          <span className="text-lg">🚪</span>
+          <span className="text-[9px] font-bold uppercase tracking-tight font-sans">Log Out</span>
         </button>
       </div>
 

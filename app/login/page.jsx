@@ -1,10 +1,35 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/utils/supabase/client'
 import { login } from './actions'
 import Link from 'next/link' 
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        window.location.href = '/dashboard'
+      } else {
+        setCheckingSession(false)
+      }
+    }
+    checkSession()
+  }, [supabase])
+
+  if (checkingSession) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="text-xs font-bold font-mono text-zinc-500 animate-pulse">
+          ⚡ CHECKING VIBE SESSION...
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen items-center justify-center bg-black text-white">

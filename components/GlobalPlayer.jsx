@@ -8,7 +8,7 @@ export default function GlobalPlayer() {
     isShuffle, setIsShuffle, isRepeat, setIsRepeat, handleNext, handlePrev,
     toggleFavorite,
     queue, setQueue, autoplayEnabled, setAutoplayEnabled,
-    playNext, addToQueue, removeFromQueue, clearQueue, playTrack
+    playNext, addToQueue, removeFromQueue, clearQueue, playTrack, playlist
   } = useAudio()
 
   const [currentTime, setCurrentTime] = useState(0)
@@ -27,6 +27,154 @@ export default function GlobalPlayer() {
   const lyricsContainerRef = useRef(null)
   const [recommendedTracks, setRecommendedTracks] = useState([])
   const [recsLoading, setRecsLoading] = useState(false)
+
+  // Album cover slider/swipe carousel states
+  const [touchStartX, setTouchStartX] = useState(null)
+  const [mouseStartX, setMouseStartX] = useState(null)
+  const [touchDeltaX, setTouchDeltaX] = useState(0)
+  const [animating, setAnimating] = useState(false)
+  const [displaySong, setDisplaySong] = useState(currentSong)
+
+  // Keep displaySong updated with currentSong
+  useEffect(() => {
+    if (!animating) {
+      setDisplaySong(currentSong)
+    }
+  }, [currentSong, animating])
+
+  const getPrevSong = () => {
+    if (!playlist || playlist.length === 0 || !currentSong) return null
+    const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
+    if (idx === -1) return null
+    return playlist[idx <= 0 ? playlist.length - 1 : idx - 1]
+  }
+
+  const getNextSong = () => {
+    if (queue && queue.length > 0) {
+      return queue[0]
+    }
+    if (!playlist || playlist.length === 0 || !currentSong) return null
+    const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
+    if (idx === -1) return null
+    const isEnd = idx === playlist.length - 1
+    return isEnd ? playlist[0] : playlist[idx + 1]
+  }
+
+  const triggerNextWithAnimation = () => {
+    if (animating) return
+    const nextSong = getNextSong()
+    if (!nextSong) {
+      setTouchDeltaX(0)
+      return
+    }
+    setAnimating(true)
+    setTouchDeltaX(-220)
+    setTimeout(() => {
+      handleNext()
+      setDisplaySong(nextSong)
+      setTouchDeltaX(0)
+      setAnimating(false)
+    }, 300)
+  }
+
+  const triggerPrevWithAnimation = () => {
+    if (animating) return
+    const prevSong = getPrevSong()
+    if (!prevSong) {
+      setTouchDeltaX(0)
+      return
+    }
+    setAnimating(true)
+    setTouchDeltaX(220)
+    setTimeout(() => {
+      handlePrev()
+      setDisplaySong(prevSong)
+      setTouchDeltaX(0)
+      setAnimating(false)
+    }, 300)
+  }
+
+  const handleTouchStart = (e) => {
+    if (animating) return
+    setTouchStartX(e.touches[0].clientX)
+    setTouchDeltaX(0)
+  }
+
+  const handleTouchMove = (e) => {
+    if (touchStartX === null || animating) return
+    const currentX = e.touches[0].clientX
+    const deltaX = currentX - touchStartX
+    setTouchDeltaX(Math.max(-240, Math.min(240, deltaX)))
+  }
+
+  const handleTouchEnd = () => {
+    if (touchStartX === null || animating) return
+    const threshold = 60
+    if (touchDeltaX > threshold) {
+      triggerPrevWithAnimation()
+    } else if (touchDeltaX < -threshold) {
+      triggerNextWithAnimation()
+    } else {
+      setAnimating(true)
+      setTouchDeltaX(0)
+      setTimeout(() => setAnimating(false), 300)
+    }
+    setTouchStartX(null)
+  }
+
+  const handleMouseDown = (e) => {
+    if (animating) return
+    setMouseStartX(e.clientX)
+    setTouchDeltaX(0)
+  }
+
+  const handleMouseMove = (e) => {
+    if (mouseStartX === null || animating) return
+    const deltaX = e.clientX - mouseStartX
+    setTouchDeltaX(Math.max(-240, Math.min(240, deltaX)))
+  }
+
+  const handleMouseUp = () => {
+    if (mouseStartX === null || animating) return
+    const threshold = 60
+    if (touchDeltaX > threshold) {
+      triggerPrevWithAnimation()
+    } else if (touchDeltaX < -threshold) {
+      triggerNextWithAnimation()
+    } else {
+      setAnimating(true)
+      setTouchDeltaX(0)
+      setTimeout(() => setAnimating(false), 300)
+    }
+    setMouseStartX(null)
+  }
+
+  const prevSong = getPrevSong()
+  const nextSong = getNextSong()
+
+  const centerStyle = {
+    position: 'absolute',
+    left: '50%',
+    transform: `translateX(calc(-50% + ${touchDeltaX}px)) scale(${1 - Math.abs(touchDeltaX) / 1000})`,
+    opacity: 1 - Math.abs(touchDeltaX) / 1000,
+    transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
+  }
+
+  const leftStyle = {
+    position: 'absolute',
+    left: '50%',
+    transform: `translateX(calc(-50% - 190px + ${touchDeltaX}px)) scale(${0.75 + (touchDeltaX > 0 ? touchDeltaX / 1000 : 0)})`,
+    opacity: 0.3 + (touchDeltaX > 0 ? touchDeltaX / 400 : 0),
+    transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
+  }
+
+  const rightStyle = {
+    position: 'absolute',
+    left: '50%',
+    transform: `translateX(calc(-50% + 190px + ${touchDeltaX}px)) scale(${0.75 + (touchDeltaX < 0 ? -touchDeltaX / 1000 : 0)})`,
+    opacity: 0.3 + (touchDeltaX < 0 ? -touchDeltaX / 400 : 0),
+    transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
+  }
 
   // Fetch lyrics dynamically when requested
   useEffect(() => {
@@ -611,12 +759,49 @@ export default function GlobalPlayer() {
                 </div>
               </div>
             ) : (
-              /* Big square cover art */
-              <div className="w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 rounded-3xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-zinc-800/60 transform hover:scale-[1.01] transition duration-500">
-                {currentSong.image_url ? (
-                  <img src={currentSong.image_url} alt="" className="w-full h-full object-cover animate-fade-in" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center font-bold text-4xl text-zinc-600">🎵</div>
+              /* Swiper/Slider Carousel for Album Covers */
+              <div 
+                className="w-full overflow-hidden relative flex items-center justify-center h-72 sm:h-80 select-none cursor-grab active:cursor-grabbing"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                {/* Previous cover (Left) */}
+                {prevSong && (
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); triggerPrevWithAnimation(); }}
+                    className="absolute w-44 h-44 sm:w-48 sm:h-48 rounded-2xl overflow-hidden z-0 cursor-pointer select-none"
+                    style={leftStyle}
+                  >
+                    <img src={prevSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none animate-fade-in" />
+                  </div>
+                )}
+
+                {/* Current cover (Center) */}
+                <div 
+                  className="w-56 h-56 sm:w-64 sm:h-64 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-zinc-800/40 z-10 select-none"
+                  style={centerStyle}
+                >
+                  {displaySong.image_url ? (
+                    <img src={displaySong.image_url} alt="" className="w-full h-full object-cover pointer-events-none animate-fade-in" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center font-bold text-4xl text-zinc-600 pointer-events-none">🎵</div>
+                  )}
+                </div>
+
+                {/* Next cover (Right) */}
+                {nextSong && (
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); triggerNextWithAnimation(); }}
+                    className="absolute w-44 h-44 sm:w-48 sm:h-48 rounded-2xl overflow-hidden z-0 cursor-pointer select-none"
+                    style={rightStyle}
+                  >
+                    <img src={nextSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none animate-fade-in" />
+                  </div>
                 )}
               </div>
             )}
@@ -681,7 +866,7 @@ export default function GlobalPlayer() {
 
             {/* AUDIO PRIMARY CONTROLS */}
             <div className="flex items-center justify-center gap-8 mb-6">
-              <button onClick={handlePrev} className="text-white hover:text-zinc-300 p-2 transition hover:scale-105 active:scale-95" title="Previous">
+              <button onClick={triggerPrevWithAnimation} className="text-white hover:text-zinc-300 p-2 transition hover:scale-105 active:scale-95" title="Previous">
                 <svg role="img" height="20" width="20" fill="currentColor" viewBox="0 0 16 16"><path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v11.475a.7.7 0 0 1-1.05.606L4 9.15v5.15a.7.7 0 0 1-1.4 0V1.7a.7.7 0 0 1 .7-.7z"></path></svg>
               </button>
               
@@ -696,7 +881,7 @@ export default function GlobalPlayer() {
                 )}
               </button>
 
-              <button onClick={handleNext} className="text-white hover:text-zinc-300 p-2 transition hover:scale-105 active:scale-95" title="Next">
+              <button onClick={triggerNextWithAnimation} className="text-white hover:text-zinc-300 p-2 transition hover:scale-105 active:scale-95" title="Next">
                 <svg role="img" height="20" width="20" fill="currentColor" viewBox="0 0 16 16"><path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.106A.7.7 0 0 0 1 1.712v11.475a.7.7 0 0 0 1.05.606L12 9.15v5.15a.7.7 0 0 0 1.4 0V1.7a.7.7 0 0 0-.7-.7z"></path></svg>
               </button>
             </div>
