@@ -453,8 +453,6 @@ export default function GlobalPlayer() {
     if (audioRef?.current) audioRef.current.volume = volume
   }, [volume, audioRef])
 
-  if (!currentSong) return null
-
   const formatTime = (time) => {
     if (!time || isNaN(time) || !isFinite(time) || time <= 0) return '0:00'
     const m = Math.floor(time / 60)
@@ -472,7 +470,7 @@ export default function GlobalPlayer() {
   }
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0
-  const isTidal = currentSong.id?.startsWith('tidal_')
+  const isTidal = currentSong?.id?.startsWith('tidal_')
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 
   // Playback speed sync
@@ -500,6 +498,7 @@ export default function GlobalPlayer() {
 
   // Share handler
   const handleShare = useCallback(async () => {
+    if (!currentSong) return
     const text = `🎵 ${currentSong?.title} by ${currentSong?.artist} — Vibe`
     const url = window.location.href
     if (navigator.share) {
@@ -518,6 +517,7 @@ export default function GlobalPlayer() {
 
   // Cast / PiP handler
   const handleCast = useCallback(async () => {
+    if (!currentSong) return
     if (document.pictureInPictureElement) {
       await document.exitPictureInPicture().catch(() => {})
       setCastActive(false)
@@ -858,6 +858,8 @@ export default function GlobalPlayer() {
       </div>
     )
   }
+
+  if (!currentSong) return null
 
   return (
     <>
