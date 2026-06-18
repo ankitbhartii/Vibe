@@ -77,21 +77,20 @@ export async function searchYTMusic(query, limit = 20) {
   }
 }
 
-/**
- * Resolves a web-standard ReadableStream for the direct audio content of a YouTube video
- */
 export async function getYTStream(videoId) {
   try {
-    console.log(`📡 Resolving YouTube stream for video ID: ${videoId} using youtubei.js...`)
+    console.log(`📡 Resolving YouTube stream for video ID: ${videoId} using youtubei.js with ANDROID_VR client...`)
     const yt = await getYtInstance()
-    const info = await yt.getInfo(videoId)
+    const info = await yt.getBasicInfo(videoId, { client: 'ANDROID_VR' })
     const format = info.chooseFormat({
       type: 'audio',
-      quality: 'best'
+      quality: 'best',
+      client: 'ANDROID_VR'
     })
     const stream = await info.download({
       type: 'audio',
-      quality: 'best'
+      quality: 'best',
+      client: 'ANDROID_VR'
     })
     return {
       stream,
