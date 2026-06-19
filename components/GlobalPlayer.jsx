@@ -463,7 +463,7 @@ export default function GlobalPlayer() {
   const handleScrub = (e) => {
     const audio = audioRef?.current
     if (!audio || !duration) return
-    const rect = progressRef.current.getBoundingClientRect()
+    const rect = e.currentTarget.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     audio.currentTime = pct * duration
     setCurrentTime(audio.currentTime)

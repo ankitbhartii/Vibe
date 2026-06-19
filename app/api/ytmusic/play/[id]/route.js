@@ -26,10 +26,31 @@ function cleanSearchQuery(title, artist) {
 
 async function getJioSaavnFallbackUrl(id) {
   try {
-    const yt = await getYtInstance()
-    const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
-    const title = info.basic_info?.title
-    const author = info.basic_info?.author
+    let title = null
+    let author = null
+
+    // 1. Try public YouTube oEmbed endpoint (very fast, no proxy needed, never blocked)
+    try {
+      console.log(`📡 Fetching metadata for YouTube video ID ${id} via oEmbed...`)
+      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`)
+      if (res.ok) {
+        const data = await res.json()
+        title = data.title
+        author = data.author_name
+        console.log(`✅ Metadata resolved via oEmbed: "${title}" by "${author}"`)
+      }
+    } catch (oembedErr) {
+      console.warn(`⚠️ oEmbed metadata lookup failed:`, oembedErr.message)
+    }
+
+    // 2. Fallback to youtubei.js if oEmbed failed
+    if (!title || !author) {
+      console.log(`📡 Falling back to Innertube for metadata resolution...`)
+      const yt = await getYtInstance()
+      const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
+      title = info.basic_info?.title
+      author = info.basic_info?.author
+    }
 
     if (title && author) {
       const query = cleanSearchQuery(title, author)
