@@ -126,7 +126,15 @@ export async function GET(request, { params }) {
     }
 
     console.log(`📡 Resolving YouTube stream for video ID: ${id} (isVercel=${isVercel}, hasProxy=${hasProxy})`)
-    const result = await getYTStream(id)
+    
+    // Attempt direct streaming with a strict 3.5-second timeout to prevent serverless function hangs
+    const result = await Promise.race([
+      getYTStream(id),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('YouTube stream resolution timed out')), 3500))
+    ]).catch(err => {
+      console.warn(`⚠️ YouTube direct stream resolution failed or timed out:`, err.message)
+      return null
+    })
 
     if (result && result.stream) {
       console.log(`🔗 Streaming YouTube audio directly: mime=${result.mimeType}, size=${result.contentLength}`)
