@@ -17,8 +17,9 @@ export async function getYtInstance() {
     const proxyPort = process.env.PROXY_PORT
     const proxyUser = process.env.PROXY_USERNAME
     const proxyPass = process.env.PROXY_PASSWORD
+    const useProxy = process.env.VERCEL === '1' || process.env.FORCE_PROXY === '1'
 
-    if (proxyHost && proxyPort) {
+    if (useProxy && proxyHost && proxyPort) {
       console.log(`📡 Initializing Innertube with Residential Proxy: ${proxyHost}:${proxyPort}`)
       try {
         const { ProxyAgent } = await import('undici')
@@ -91,7 +92,7 @@ export async function searchYTMusic(query, limit = 20) {
         artist: artistName,
         album: albumName,
         image_url: thumbnail,
-        audio_url: `/api/ytmusic/play/${song.id}?title=${encodeURIComponent(song.title || '')}&artist=${encodeURIComponent(artistName)}`,
+        audio_url: `/api/ytmusic/play/${song.id}`,
         duration: durationSeconds,
         source: 'ytmusic',
         is_favorite: false
