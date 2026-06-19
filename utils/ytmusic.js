@@ -9,43 +9,53 @@ Platform.shim.eval = (code, env) => {
 
 const execPromise = util.promisify(exec)
 
-let ytInstance = null
+let ytInstanceProxied = null
+let ytInstanceDirect = null
 
-export async function getYtInstance() {
-  if (!ytInstance) {
-    const proxyHost = process.env.PROXY_HOST
-    const proxyPort = process.env.PROXY_PORT
-    const proxyUser = process.env.PROXY_USERNAME
-    const proxyPass = process.env.PROXY_PASSWORD
-    const useProxy = process.env.VERCEL === '1' || process.env.FORCE_PROXY === '1'
+export async function getYtInstance(forceDirect = false) {
+  const useProxy = (process.env.VERCEL === '1' || process.env.FORCE_PROXY === '1') && !forceDirect
 
-    if (useProxy && proxyHost && proxyPort) {
-      const protocol = process.env.PROXY_PROTOCOL || 'http'
-      console.log(`📡 Initializing Innertube with Residential Proxy (${protocol}): ${proxyHost}:${proxyPort}`)
-      try {
-        const { ProxyAgent } = await import('undici')
-        const authPart = proxyUser && proxyPass ? `${proxyUser}:${proxyPass}@` : ''
-        const proxyUrl = `${protocol}://${authPart}${proxyHost}:${proxyPort}`
-        const proxyAgent = new ProxyAgent(proxyUrl)
+  if (useProxy) {
+    if (!ytInstanceProxied) {
+      const proxyHost = process.env.PROXY_HOST
+      const proxyPort = process.env.PROXY_PORT
+      const proxyUser = process.env.PROXY_USERNAME
+      const proxyPass = process.env.PROXY_PASSWORD
 
-        ytInstance = await Innertube.create({
-          fetch(input, init) {
-            return Platform.shim.fetch(input, {
-              ...init,
-              dispatcher: proxyAgent
-            })
-          }
-        })
-      } catch (proxyError) {
-        console.error("❌ Failed to initialize Innertube with ProxyAgent, falling back to direct connection:", proxyError)
-        ytInstance = await Innertube.create()
+      if (proxyHost && proxyPort) {
+        const protocol = process.env.PROXY_PROTOCOL || 'http'
+        console.log(`📡 Initializing Innertube with Residential Proxy (${protocol}): ${proxyHost}:${proxyPort}`)
+        try {
+          const { ProxyAgent } = await import('undici')
+          const authPart = proxyUser && proxyPass ? `${proxyUser}:${proxyPass}@` : ''
+          const proxyUrl = `${protocol}://${authPart}${proxyHost}:${proxyPort}`
+          const proxyAgent = new ProxyAgent(proxyUrl)
+
+          ytInstanceProxied = await Innertube.create({
+            fetch(input, init) {
+              return Platform.shim.fetch(input, {
+                ...init,
+                dispatcher: proxyAgent
+              })
+            }
+          })
+        } catch (proxyError) {
+          console.error("❌ Failed to initialize Innertube with ProxyAgent, falling back to direct connection:", proxyError)
+          ytInstanceProxied = await Innertube.create()
+        }
+      } else {
+        console.log("📡 Initializing Innertube with direct connection (no proxy configured)...")
+        ytInstanceProxied = await Innertube.create()
       }
-    } else {
-      console.log("📡 Initializing Innertube with direct connection (no proxy)...")
-      ytInstance = await Innertube.create()
     }
+    return ytInstanceProxied
+  } else {
+    if (!ytInstanceDirect) {
+      console.log("📡 Initializing Innertube with direct connection (forceDirect or localhost)...")
+      ytInstanceDirect = await Innertube.create()
+    }
+    return ytInstanceDirect
   }
-  return ytInstance
 }
 
 /**
@@ -53,8 +63,8 @@ export async function getYtInstance() {
  */
 export async function searchYTMusic(query, limit = 20) {
   try {
-    console.log(`📡 Searching YouTube Music catalog for: "${query}" using youtubei.js...`)
-    const yt = await getYtInstance()
+    console.log(`📡 Searching YouTube Music catalog for: "${query}" (direct connection)...`)
+    const yt = await getYtInstance(true)
     const results = await yt.music.search(query, { type: 'song' })
 
     if (!results || !results.songs || !results.songs.contents) {
@@ -102,7 +112,7 @@ export async function searchYTMusic(query, limit = 20) {
   } catch (err) {
     console.error("❌ YouTube Music search utility error:", err)
     // Clear instance to force recreation next time on error
-    ytInstance = null
+    ytInstanceDirect = null
     return []
   }
 }
