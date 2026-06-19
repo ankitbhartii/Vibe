@@ -119,9 +119,9 @@ export async function searchYTMusic(query, limit = 20) {
   }
 }
 
-export async function getYTStream(videoId) {
+export async function getYTStream(videoId, range = undefined) {
   try {
-    console.log(`📡 Resolving YouTube stream for video ID: ${videoId} using youtubei.js with ANDROID_VR client...`)
+    console.log(`📡 Resolving YouTube stream for video ID: ${videoId} using youtubei.js with ANDROID_VR client (range=${range ? `${range.start}-${range.end || ''}` : 'none'})...`)
     const yt = await getYtInstance()
     const info = await yt.getBasicInfo(videoId, { client: 'ANDROID_VR' })
     const format = info.chooseFormat({
@@ -129,11 +129,15 @@ export async function getYTStream(videoId) {
       quality: 'best',
       client: 'ANDROID_VR'
     })
-    const stream = await info.download({
+    const downloadOpts = {
       type: 'audio',
       quality: 'best',
       client: 'ANDROID_VR'
-    })
+    }
+    if (range) {
+      downloadOpts.range = range
+    }
+    const stream = await info.download(downloadOpts)
     return {
       stream,
       mimeType: format.mime_type,
