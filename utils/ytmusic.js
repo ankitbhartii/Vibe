@@ -91,7 +91,7 @@ export async function searchYTMusic(query, limit = 20) {
         artist: artistName,
         album: albumName,
         image_url: thumbnail,
-        audio_url: `/api/ytmusic/play/${song.id}`,
+        audio_url: `/api/ytmusic/play/${song.id}?title=${encodeURIComponent(song.title || '')}&artist=${encodeURIComponent(artistName)}`,
         duration: durationSeconds,
         source: 'ytmusic',
         is_favorite: false

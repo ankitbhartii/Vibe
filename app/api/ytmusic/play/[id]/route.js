@@ -50,23 +50,25 @@ function findBestSaavnMatch(saavnSongs, ytTitle) {
   return saavnSongs[0];
 }
 
-async function getJioSaavnFallbackUrl(id) {
+async function getJioSaavnFallbackUrl(id, queryTitle, queryArtist) {
   try {
-    let title = null
-    let author = null
+    let title = queryTitle || null
+    let author = queryArtist || null
 
     // 1. Try public YouTube oEmbed endpoint (very fast, no proxy needed, never blocked)
-    try {
-      console.log(`📡 Fetching metadata for YouTube video ID ${id} via oEmbed...`)
-      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`)
-      if (res.ok) {
-        const data = await res.json()
-        title = data.title
-        author = data.author_name
-        console.log(`✅ Metadata resolved via oEmbed: "${title}" by "${author}"`)
+    if (!title || !author) {
+      try {
+        console.log(`📡 Fetching metadata for YouTube video ID ${id} via oEmbed...`)
+        const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`)
+        if (res.ok) {
+          const data = await res.json()
+          title = data.title
+          author = data.author_name
+          console.log(`✅ Metadata resolved via oEmbed: "${title}" by "${author}"`)
+        }
+      } catch (oembedErr) {
+        console.warn(`⚠️ oEmbed metadata lookup failed:`, oembedErr.message)
       }
-    } catch (oembedErr) {
-      console.warn(`⚠️ oEmbed metadata lookup failed:`, oembedErr.message)
     }
 
     // 2. Fallback to youtubei.js if oEmbed failed
@@ -107,12 +109,16 @@ export async function GET(request, { params }) {
       return new Response('Video ID is required', { status: 400 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const queryTitle = searchParams.get('title')
+    const queryArtist = searchParams.get('artist')
+
     const isVercel = process.env.VERCEL === '1'
     const hasProxy = !!process.env.PROXY_HOST
 
     if (isVercel && !hasProxy) {
       console.log(`📡 Vercel environment without proxy detected. Attempting JioSaavn fallback for YouTube ID: ${id}`)
-      const redirectUrl = await getJioSaavnFallbackUrl(id)
+      const redirectUrl = await getJioSaavnFallbackUrl(id, queryTitle, queryArtist)
       if (redirectUrl) {
         console.log(`🔗 Redirecting Vercel client to JioSaavn CDN: ${redirectUrl}`)
         return new Response(null, {
@@ -157,7 +163,7 @@ export async function GET(request, { params }) {
 
     if (isVercel && hasProxy) {
       console.warn(`⚠️ Proxy streaming failed on Vercel. Trying JioSaavn fallback as last resort...`)
-      const redirectUrl = await getJioSaavnFallbackUrl(id)
+      const redirectUrl = await getJioSaavnFallbackUrl(id, queryTitle, queryArtist)
       if (redirectUrl) {
         console.log(`🔗 Redirecting Vercel client to JioSaavn CDN (last resort): ${redirectUrl}`)
         return new Response(null, {
