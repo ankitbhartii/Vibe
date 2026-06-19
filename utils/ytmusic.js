@@ -20,11 +20,12 @@ export async function getYtInstance() {
     const useProxy = process.env.VERCEL === '1' || process.env.FORCE_PROXY === '1'
 
     if (useProxy && proxyHost && proxyPort) {
-      console.log(`📡 Initializing Innertube with Residential Proxy: ${proxyHost}:${proxyPort}`)
+      const protocol = process.env.PROXY_PROTOCOL || 'http'
+      console.log(`📡 Initializing Innertube with Residential Proxy (${protocol}): ${proxyHost}:${proxyPort}`)
       try {
         const { ProxyAgent } = await import('undici')
         const authPart = proxyUser && proxyPass ? `${proxyUser}:${proxyPass}@` : ''
-        const proxyUrl = `http://${authPart}${proxyHost}:${proxyPort}`
+        const proxyUrl = `${protocol}://${authPart}${proxyHost}:${proxyPort}`
         const proxyAgent = new ProxyAgent(proxyUrl)
 
         ytInstance = await Innertube.create({
