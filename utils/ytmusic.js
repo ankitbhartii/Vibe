@@ -9,53 +9,55 @@ Platform.shim.eval = (code, env) => {
 
 const execPromise = util.promisify(exec)
 
-let ytInstanceProxied = null
-let ytInstanceDirect = null
+let ytInstance = null
+let proxyAgent = null
 
-export async function getYtInstance(forceDirect = false) {
-  const useProxy = (process.env.VERCEL === '1' || process.env.FORCE_PROXY === '1') && !forceDirect
+// Initialize ProxyAgent on load if proxy settings are configured
+const proxyHost = process.env.PROXY_HOST
+const proxyPort = process.env.PROXY_PORT
+const proxyUser = process.env.PROXY_USERNAME
+const proxyPass = process.env.PROXY_PASSWORD
+const protocol = process.env.PROXY_PROTOCOL || 'http'
+const useProxyEnabled = process.env.VERCEL === '1' || process.env.FORCE_PROXY === '1'
 
-  if (useProxy) {
-    if (!ytInstanceProxied) {
-      const proxyHost = process.env.PROXY_HOST
-      const proxyPort = process.env.PROXY_PORT
-      const proxyUser = process.env.PROXY_USERNAME
-      const proxyPass = process.env.PROXY_PASSWORD
-
-      if (proxyHost && proxyPort) {
-        const protocol = process.env.PROXY_PROTOCOL || 'http'
-        console.log(`📡 Initializing Innertube with Residential Proxy (${protocol}): ${proxyHost}:${proxyPort}`)
-        try {
-          const { ProxyAgent } = await import('undici')
-          const authPart = proxyUser && proxyPass ? `${proxyUser}:${proxyPass}@` : ''
-          const proxyUrl = `${protocol}://${authPart}${proxyHost}:${proxyPort}`
-          const proxyAgent = new ProxyAgent(proxyUrl)
-
-          ytInstanceProxied = await Innertube.create({
-            fetch(input, init) {
-              return Platform.shim.fetch(input, {
-                ...init,
-                dispatcher: proxyAgent
-              })
-            }
-          })
-        } catch (proxyError) {
-          console.error("❌ Failed to initialize Innertube with ProxyAgent, falling back to direct connection:", proxyError)
-          ytInstanceProxied = await Innertube.create()
-        }
-      } else {
-        console.log("📡 Initializing Innertube with direct connection (no proxy configured)...")
-        ytInstanceProxied = await Innertube.create()
-      }
-    }
-    return ytInstanceProxied
-  } else {
-    if (!ytInstanceDirect) {
-      console.log("📡 Initializing Innertube with direct connection (forceDirect or localhost)...")
-      ytInstanceDirect = await Innertube.create()
-    }
-    return ytInstanceDirect
+if (useProxyEnabled && proxyHost && proxyPort) {
+  try {
+    const { ProxyAgent } = await import('undici')
+    const authPart = proxyUser && proxyPass ? `${proxyUser}:${proxyPass}@` : ''
+    const proxyUrl = `${protocol}://${authPart}${proxyHost}:${proxyPort}`
+    proxyAgent = new ProxyAgent(proxyUrl)
+    console.log(`📡 Selective proxy active: ${protocol}://***:***@${proxyHost}:${proxyPort}`)
+  } catch (err) {
+    console.error("❌ Failed to initialize ProxyAgent:", err)
   }
+}
+
+// Override Platform.shim.fetch globally to selectively route through the proxy
+const originalPlatformFetch = Platform.shim.fetch
+Platform.shim.fetch = function(input, init) {
+  const urlStr = typeof input === 'string' ? input : (input.url || '')
+
+  // Only proxy actual media streams (googlevideo.com) and the playback endpoint (/youtubei/v1/player)
+  const isPlaybackOrStream = urlStr.includes('googlevideo.com') || urlStr.includes('/youtubei/v1/player')
+
+  if (proxyAgent && isPlaybackOrStream) {
+    console.log(`📡 [Proxied Request] ${urlStr.slice(0, 120)}...`)
+    return originalPlatformFetch(input, {
+      ...init,
+      dispatcher: proxyAgent
+    })
+  }
+
+  // Otherwise, use direct high-speed connection
+  return originalPlatformFetch(input, init)
+}
+
+export async function getYtInstance() {
+  if (!ytInstance) {
+    console.log("📡 Initializing single Innertube instance directly (selective proxy active)...")
+    ytInstance = await Innertube.create()
+  }
+  return ytInstance
 }
 
 /**
@@ -63,8 +65,8 @@ export async function getYtInstance(forceDirect = false) {
  */
 export async function searchYTMusic(query, limit = 20) {
   try {
-    console.log(`📡 Searching YouTube Music catalog for: "${query}" (direct connection)...`)
-    const yt = await getYtInstance(true)
+    console.log(`📡 Searching YouTube Music catalog for: "${query}"...`)
+    const yt = await getYtInstance()
     const results = await yt.music.search(query, { type: 'song' })
 
     if (!results || !results.songs || !results.songs.contents) {
