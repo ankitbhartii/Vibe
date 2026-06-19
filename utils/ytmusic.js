@@ -1,14 +1,47 @@
-import { Innertube } from 'youtubei.js'
+import { Innertube, Platform } from 'youtubei.js'
 import { exec } from 'child_process'
 import util from 'util'
+
+// Configure signature decipher shim for Vercel and Node environments
+Platform.shim.eval = (code, env) => {
+  return new Function(code.output)();
+};
 
 const execPromise = util.promisify(exec)
 
 let ytInstance = null
 
-async function getYtInstance() {
+export async function getYtInstance() {
   if (!ytInstance) {
-    ytInstance = await Innertube.create()
+    const proxyHost = process.env.PROXY_HOST
+    const proxyPort = process.env.PROXY_PORT
+    const proxyUser = process.env.PROXY_USERNAME
+    const proxyPass = process.env.PROXY_PASSWORD
+
+    if (proxyHost && proxyPort) {
+      console.log(`📡 Initializing Innertube with Residential Proxy: ${proxyHost}:${proxyPort}`)
+      try {
+        const { ProxyAgent } = await import('undici')
+        const authPart = proxyUser && proxyPass ? `${proxyUser}:${proxyPass}@` : ''
+        const proxyUrl = `http://${authPart}${proxyHost}:${proxyPort}`
+        const proxyAgent = new ProxyAgent(proxyUrl)
+
+        ytInstance = await Innertube.create({
+          fetch(input, init) {
+            return Platform.shim.fetch(input, {
+              ...init,
+              dispatcher: proxyAgent
+            })
+          }
+        })
+      } catch (proxyError) {
+        console.error("❌ Failed to initialize Innertube with ProxyAgent, falling back to direct connection:", proxyError)
+        ytInstance = await Innertube.create()
+      }
+    } else {
+      console.log("📡 Initializing Innertube with direct connection (no proxy)...")
+      ytInstance = await Innertube.create()
+    }
   }
   return ytInstance
 }
@@ -72,23 +105,28 @@ export async function searchYTMusic(query, limit = 20) {
   }
 }
 
-/**
- * Resolves the direct high-quality audio stream URL from YouTube using yt-dlp
- */
-export async function getYTStreamUrl(videoId) {
+export async function getYTStream(videoId) {
   try {
-    console.log(`📡 Resolving YouTube stream URL for video ID: ${videoId} using yt-dlp...`)
-    const { stdout, stderr } = await execPromise(`yt-dlp -f bestaudio -g "${videoId}"`)
-    const url = stdout.trim()
-    if (!url) {
-      if (stderr) {
-        console.error(`❌ yt-dlp stderr: ${stderr}`)
-      }
-      return null
+    console.log(`📡 Resolving YouTube stream for video ID: ${videoId} using youtubei.js with ANDROID_VR client...`)
+    const yt = await getYtInstance()
+    const info = await yt.getBasicInfo(videoId, { client: 'ANDROID_VR' })
+    const format = info.chooseFormat({
+      type: 'audio',
+      quality: 'best',
+      client: 'ANDROID_VR'
+    })
+    const stream = await info.download({
+      type: 'audio',
+      quality: 'best',
+      client: 'ANDROID_VR'
+    })
+    return {
+      stream,
+      mimeType: format.mime_type,
+      contentLength: format.content_length
     }
-    return url
   } catch (err) {
-    console.error(`❌ yt-dlp failed to resolve stream for video ID: ${videoId}:`, err)
+    console.error(`❌ youtubei.js failed to resolve stream for video ID: ${videoId}:`, err)
     return null
   }
 }
