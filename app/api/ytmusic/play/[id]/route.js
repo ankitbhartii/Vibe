@@ -24,6 +24,32 @@ function cleanSearchQuery(title, artist) {
   return `${cleanTitle} ${cleanArtist}`
 }
 
+function findBestSaavnMatch(saavnSongs, ytTitle) {
+  const lowercaseYtTitle = ytTitle.toLowerCase();
+  const isYtInstrumental = lowercaseYtTitle.includes('instrumental') || lowercaseYtTitle.includes('karaoke');
+  const isYtCover = lowercaseYtTitle.includes('cover') || lowercaseYtTitle.includes('tribute') || lowercaseYtTitle.includes('tribute cover');
+  const isYtRemix = lowercaseYtTitle.includes('remix');
+
+  for (const song of saavnSongs) {
+    const lowercaseSaavnTitle = song.title.toLowerCase();
+    
+    // Check if the Saavn match is an instrumental/karaoke/cover, but the original YouTube video was NOT
+    const isSaavnInstrumental = lowercaseSaavnTitle.includes('instrumental') || lowercaseSaavnTitle.includes('karaoke');
+    const isSaavnCover = lowercaseSaavnTitle.includes('cover') || lowercaseSaavnTitle.includes('tribute') || lowercaseSaavnTitle.includes('tribute cover');
+    const isSaavnRemix = lowercaseSaavnTitle.includes('remix');
+
+    if (!isYtInstrumental && isSaavnInstrumental) continue;
+    if (!isYtCover && isSaavnCover) continue;
+    if (!isYtRemix && isSaavnRemix) continue;
+
+    // Found a good match that doesn't mismatch on cover/instrumental/remix tags
+    return song;
+  }
+
+  // Fallback to the first song if no strict match satisfies the filter
+  return saavnSongs[0];
+}
+
 async function getJioSaavnFallbackUrl(id) {
   try {
     let title = null
@@ -58,7 +84,7 @@ async function getJioSaavnFallbackUrl(id) {
       const saavnSongs = await searchSongs(query, 5)
 
       if (saavnSongs.length > 0) {
-        const bestMatch = saavnSongs[0]
+        const bestMatch = findBestSaavnMatch(saavnSongs, title)
         console.log(`✅ Found JioSaavn match: ${bestMatch.title} (ID: ${bestMatch.rawId})`)
         const streamUrl = await getSongStreamUrl(bestMatch.rawId)
         if (streamUrl) {
