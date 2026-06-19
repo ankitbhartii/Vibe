@@ -1,6 +1,28 @@
-import { getYTStream } from '@/utils/ytmusic'
+import { getYTStream, getYtInstance } from '@/utils/ytmusic'
+import { searchSongs, getSongStreamUrl } from '@/utils/saavn'
 
 export const dynamic = 'force-dynamic'
+
+// Clean up title and artist to make saavn search more accurate
+function cleanSearchQuery(title, artist) {
+  let cleanTitle = title
+    .replace(/\(from\s+[^)]+\)/gi, '')
+    .replace(/\(feat\.[^)]+\)/gi, '')
+    .replace(/\(official\s+[^)]+\)/gi, '')
+    .replace(/\bLyrical\b/gi, '')
+    .replace(/\bAudio\b/gi, '')
+    .replace(/\bVideo\b/gi, '')
+    .replace(/\[[^\]]+\]/g, '')
+    .replace(/\([^)]+\)/g, '')
+    .trim()
+  
+  let cleanArtist = artist
+    .replace(/- Topic\b/gi, '')
+    .replace(/\bVEVO\b/gi, '')
+    .trim()
+    
+  return `${cleanTitle} ${cleanArtist}`
+}
 
 export async function GET(request, { params }) {
   try {
@@ -11,7 +33,45 @@ export async function GET(request, { params }) {
       return new Response('Video ID is required', { status: 400 })
     }
 
-    console.log(`📡 Resolving YouTube stream for video ID: ${id}`)
+    const isVercel = process.env.VERCEL === '1'
+
+    if (isVercel) {
+      console.log(`📡 Vercel environment detected. Attempting JioSaavn fallback for YouTube ID: ${id}`)
+      try {
+        const yt = await getYtInstance()
+        const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
+        const title = info.basic_info?.title
+        const author = info.basic_info?.author
+
+        if (title && author) {
+          const query = cleanSearchQuery(title, author)
+          console.log(`🔍 Searching JioSaavn for fallback: "${query}"`)
+          const saavnSongs = await searchSongs(query, 5)
+
+          if (saavnSongs.length > 0) {
+            const bestMatch = saavnSongs[0]
+            console.log(`✅ Found JioSaavn match: ${bestMatch.title} (ID: ${bestMatch.rawId})`)
+            const streamUrl = await getSongStreamUrl(bestMatch.rawId)
+
+            if (streamUrl) {
+              console.log(`🔗 Redirecting Vercel client to JioSaavn CDN: ${streamUrl}`)
+              return new Response(null, {
+                status: 307,
+                headers: {
+                  'Location': streamUrl,
+                  'Access-Control-Allow-Origin': '*'
+                }
+              })
+            }
+          }
+        }
+        console.warn(`⚠️ No JioSaavn match found for: ${title || id}. Falling back to direct stream proxy.`)
+      } catch (err) {
+        console.error(`❌ JioSaavn fallback failed:`, err.message)
+      }
+    }
+
+    console.log(`📡 Resolving direct YouTube stream for video ID: ${id}`)
     const result = await getYTStream(id)
 
     if (!result || !result.stream) {

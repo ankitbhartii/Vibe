@@ -11,7 +11,7 @@ const execPromise = util.promisify(exec)
 
 let ytInstance = null
 
-async function getYtInstance() {
+export async function getYtInstance() {
   if (!ytInstance) {
     ytInstance = await Innertube.create()
   }
