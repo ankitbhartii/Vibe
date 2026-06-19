@@ -24,6 +24,33 @@ function cleanSearchQuery(title, artist) {
   return `${cleanTitle} ${cleanArtist}`
 }
 
+async function getJioSaavnFallbackUrl(id) {
+  try {
+    const yt = await getYtInstance()
+    const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
+    const title = info.basic_info?.title
+    const author = info.basic_info?.author
+
+    if (title && author) {
+      const query = cleanSearchQuery(title, author)
+      console.log(`🔍 Searching JioSaavn for fallback: "${query}"`)
+      const saavnSongs = await searchSongs(query, 5)
+
+      if (saavnSongs.length > 0) {
+        const bestMatch = saavnSongs[0]
+        console.log(`✅ Found JioSaavn match: ${bestMatch.title} (ID: ${bestMatch.rawId})`)
+        const streamUrl = await getSongStreamUrl(bestMatch.rawId)
+        if (streamUrl) {
+          return streamUrl
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`❌ JioSaavn fallback failed:`, err.message)
+  }
+  return null
+}
+
 export async function GET(request, { params }) {
   try {
     const resolvedParams = await params
@@ -34,67 +61,62 @@ export async function GET(request, { params }) {
     }
 
     const isVercel = process.env.VERCEL === '1'
+    const hasProxy = !!process.env.PROXY_HOST
 
-    if (isVercel) {
-      console.log(`📡 Vercel environment detected. Attempting JioSaavn fallback for YouTube ID: ${id}`)
-      try {
-        const yt = await getYtInstance()
-        const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
-        const title = info.basic_info?.title
-        const author = info.basic_info?.author
-
-        if (title && author) {
-          const query = cleanSearchQuery(title, author)
-          console.log(`🔍 Searching JioSaavn for fallback: "${query}"`)
-          const saavnSongs = await searchSongs(query, 5)
-
-          if (saavnSongs.length > 0) {
-            const bestMatch = saavnSongs[0]
-            console.log(`✅ Found JioSaavn match: ${bestMatch.title} (ID: ${bestMatch.rawId})`)
-            const streamUrl = await getSongStreamUrl(bestMatch.rawId)
-
-            if (streamUrl) {
-              console.log(`🔗 Redirecting Vercel client to JioSaavn CDN: ${streamUrl}`)
-              return new Response(null, {
-                status: 307,
-                headers: {
-                  'Location': streamUrl,
-                  'Access-Control-Allow-Origin': '*'
-                }
-              })
-            }
+    if (isVercel && !hasProxy) {
+      console.log(`📡 Vercel environment without proxy detected. Attempting JioSaavn fallback for YouTube ID: ${id}`)
+      const redirectUrl = await getJioSaavnFallbackUrl(id)
+      if (redirectUrl) {
+        console.log(`🔗 Redirecting Vercel client to JioSaavn CDN: ${redirectUrl}`)
+        return new Response(null, {
+          status: 307,
+          headers: {
+            'Location': redirectUrl,
+            'Access-Control-Allow-Origin': '*'
           }
-        }
-        console.warn(`⚠️ No JioSaavn match found for: ${title || id}. Falling back to direct stream proxy.`)
-      } catch (err) {
-        console.error(`❌ JioSaavn fallback failed:`, err.message)
+        })
       }
     }
 
-    console.log(`📡 Resolving direct YouTube stream for video ID: ${id}`)
+    console.log(`📡 Resolving YouTube stream for video ID: ${id} (isVercel=${isVercel}, hasProxy=${hasProxy})`)
     const result = await getYTStream(id)
 
-    if (!result || !result.stream) {
-      console.error(`❌ Could not resolve YouTube stream for: ${id}`)
-      return new Response('Stream could not be resolved', { status: 404 })
+    if (result && result.stream) {
+      console.log(`🔗 Streaming YouTube audio directly: mime=${result.mimeType}, size=${result.contentLength}`)
+      
+      const headers = {
+        'Content-Type': result.mimeType || 'audio/mp4',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=3600'
+      }
+      
+      if (result.contentLength) {
+        headers['Content-Length'] = String(result.contentLength)
+      }
+
+      return new Response(result.stream, {
+        status: 200,
+        headers
+      })
     }
 
-    console.log(`🔗 Streaming YouTube audio directly: mime=${result.mimeType}, size=${result.contentLength}`)
-    
-    const headers = {
-      'Content-Type': result.mimeType || 'audio/mp4',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, max-age=3600'
-    }
-    
-    if (result.contentLength) {
-      headers['Content-Length'] = String(result.contentLength)
+    if (isVercel && hasProxy) {
+      console.warn(`⚠️ Proxy streaming failed on Vercel. Trying JioSaavn fallback as last resort...`)
+      const redirectUrl = await getJioSaavnFallbackUrl(id)
+      if (redirectUrl) {
+        console.log(`🔗 Redirecting Vercel client to JioSaavn CDN (last resort): ${redirectUrl}`)
+        return new Response(null, {
+          status: 307,
+          headers: {
+            'Location': redirectUrl,
+            'Access-Control-Allow-Origin': '*'
+          }
+        })
+      }
     }
 
-    return new Response(result.stream, {
-      status: 200,
-      headers
-    })
+    console.error(`❌ Could not resolve YouTube stream for: ${id}`)
+    return new Response('Stream could not be resolved', { status: 404 })
   } catch (error) {
     console.error('❌ YouTube Music Play API route failure:', error)
     return new Response(`Error: ${error.message}`, { status: 500 })

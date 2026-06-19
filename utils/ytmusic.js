@@ -13,7 +13,35 @@ let ytInstance = null
 
 export async function getYtInstance() {
   if (!ytInstance) {
-    ytInstance = await Innertube.create()
+    const proxyHost = process.env.PROXY_HOST
+    const proxyPort = process.env.PROXY_PORT
+    const proxyUser = process.env.PROXY_USERNAME
+    const proxyPass = process.env.PROXY_PASSWORD
+
+    if (proxyHost && proxyPort) {
+      console.log(`📡 Initializing Innertube with Residential Proxy: ${proxyHost}:${proxyPort}`)
+      try {
+        const { ProxyAgent } = await import('undici')
+        const authPart = proxyUser && proxyPass ? `${proxyUser}:${proxyPass}@` : ''
+        const proxyUrl = `http://${authPart}${proxyHost}:${proxyPort}`
+        const proxyAgent = new ProxyAgent(proxyUrl)
+
+        ytInstance = await Innertube.create({
+          fetch(input, init) {
+            return Platform.shim.fetch(input, {
+              ...init,
+              dispatcher: proxyAgent
+            })
+          }
+        })
+      } catch (proxyError) {
+        console.error("❌ Failed to initialize Innertube with ProxyAgent, falling back to direct connection:", proxyError)
+        ytInstance = await Innertube.create()
+      }
+    } else {
+      console.log("📡 Initializing Innertube with direct connection (no proxy)...")
+      ytInstance = await Innertube.create()
+    }
   }
   return ytInstance
 }
