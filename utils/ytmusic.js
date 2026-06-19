@@ -17,8 +17,9 @@ export async function getYtInstance() {
     const proxyPort = process.env.PROXY_PORT
     const proxyUser = process.env.PROXY_USERNAME
     const proxyPass = process.env.PROXY_PASSWORD
+    const useProxy = process.env.VERCEL === '1' || process.env.FORCE_PROXY === '1'
 
-    if (proxyHost && proxyPort) {
+    if (useProxy && proxyHost && proxyPort) {
       console.log(`📡 Initializing Innertube with Residential Proxy: ${proxyHost}:${proxyPort}`)
       try {
         const { ProxyAgent } = await import('undici')
