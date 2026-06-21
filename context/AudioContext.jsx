@@ -6,7 +6,29 @@ const AudioContext = createContext()
 
 export function AudioProvider({ children }) {
   const [playlist, setPlaylist] = useState([])
-  const [currentSong, setCurrentSong] = useState(null)
+  const [currentSong, setCurrentSongState] = useState(null)
+
+  // Normalizer: auto-tag yt_ prefixed IDs with source/rawId so all consumers
+  // can reliably check currentSong.source === 'ytmusic'
+  const setCurrentSong = useCallback((songOrFunc) => {
+    const normalize = (song) => {
+      if (!song || typeof song !== 'object') return song
+      const idStr = String(song.id || '')
+      if (idStr.startsWith('yt_') && song.source !== 'ytmusic') {
+        return {
+          ...song,
+          source: 'ytmusic',
+          rawId: song.rawId || idStr.replace('yt_', '')
+        }
+      }
+      return song
+    }
+    if (typeof songOrFunc === 'function') {
+      setCurrentSongState(prev => normalize(songOrFunc(prev)))
+    } else {
+      setCurrentSongState(normalize(songOrFunc))
+    }
+  }, [])
   const [isPlaying, setIsPlaying] = useState(false)
   const [isShuffle, setIsShuffle] = useState(false)
   const [isRepeat, setIsRepeat] = useState(false)
@@ -141,6 +163,15 @@ export function AudioProvider({ children }) {
 
     if (!currentSong) {
       audio.pause()
+      return
+    }
+
+    // ── YouTube Music tracks: bypass HTML5 audio entirely ──
+    // The YouTube IFrame Player inside GlobalPlayer handles these.
+    if (currentSong.source === 'ytmusic') {
+      audio.pause()
+      audio.src = '' // clear any previous src so it doesn't linger
+      addToHistory(currentSong)
       return
     }
 

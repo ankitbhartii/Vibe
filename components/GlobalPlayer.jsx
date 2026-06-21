@@ -18,6 +18,137 @@ export default function GlobalPlayer() {
   const [isHovered, setIsHovered] = useState(false)
   const progressRef = useRef(null)
 
+  // ── YouTube IFrame Player (for ytmusic source tracks) ──
+  const ytContainerRef = useRef(null)   // div that YT.Player mounts into
+  const ytPlayerRef    = useRef(null)   // YT.Player instance
+  const ytReadyRef     = useRef(false)  // is the YT API loaded?
+  const ytTimerRef     = useRef(null)   // setInterval for currentTime polling
+  const isYTSong = currentSong?.source === 'ytmusic'
+
+  // Load the YouTube IFrame API script once
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.YT && window.YT.Player) { ytReadyRef.current = true; return }
+
+    if (!document.getElementById('yt-iframe-api')) {
+      const tag = document.createElement('script')
+      tag.id = 'yt-iframe-api'
+      tag.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(tag)
+    }
+
+    window.onYouTubeIframeAPIReady = () => {
+      ytReadyRef.current = true
+    }
+  }, [])
+
+  // Create / reload YT.Player when a YouTube Music song is selected
+  useEffect(() => {
+    if (!isYTSong || !currentSong?.rawId) return
+
+    const videoId = currentSong.rawId
+
+    const initPlayer = () => {
+      if (!ytReadyRef.current || !ytContainerRef.current) {
+        setTimeout(initPlayer, 200)
+        return
+      }
+
+      // Destroy any previous player instance
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy() } catch (_) {}
+        ytPlayerRef.current = null
+      }
+
+      // Clear the container div and create a fresh one inside it
+      const mountId = `yt-player-mount-${Date.now()}`
+      ytContainerRef.current.innerHTML = `<div id="${mountId}"></div>`
+
+      ytPlayerRef.current = new window.YT.Player(mountId, {
+        height: '0',
+        width: '0',
+        videoId,
+        playerVars: {
+          autoplay: isPlaying ? 1 : 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          rel: 0,
+          origin: window.location.origin,
+        },
+        events: {
+          onReady: (e) => {
+            e.target.setVolume(volume * 100)
+            if (isPlaying) e.target.playVideo()
+            const d = e.target.getDuration()
+            if (d && d > 0) setDuration(d)
+          },
+          onStateChange: (e) => {
+            // YT.PlayerState: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
+            if (e.data === window.YT.PlayerState.ENDED) {
+              if (isRepeat) {
+                e.target.seekTo(0, true)
+                e.target.playVideo()
+              } else {
+                handleNext()
+              }
+            }
+          },
+          onError: (e) => {
+            console.warn('[YT Player] Error code:', e.data)
+            // Try the next song on playback error
+            handleNext()
+          }
+        }
+      })
+    }
+
+    initPlayer()
+
+    return () => {
+      if (ytTimerRef.current) clearInterval(ytTimerRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?.rawId])
+
+  // Sync play/pause state with YT player
+  useEffect(() => {
+    const p = ytPlayerRef.current
+    if (!p || !isYTSong) return
+    try {
+      if (isPlaying) { p.playVideo() } else { p.pauseVideo() }
+    } catch (_) {}
+  }, [isPlaying, isYTSong])
+
+  // Sync volume with YT player
+  useEffect(() => {
+    const p = ytPlayerRef.current
+    if (!p || !isYTSong) return
+    try { p.setVolume(volume * 100) } catch (_) {}
+  }, [volume, isYTSong])
+
+  // Poll YT player for currentTime & duration
+  useEffect(() => {
+    if (!isYTSong) {
+      if (ytTimerRef.current) { clearInterval(ytTimerRef.current); ytTimerRef.current = null }
+      return
+    }
+    ytTimerRef.current = setInterval(() => {
+      const p = ytPlayerRef.current
+      if (!p) return
+      try {
+        const t = p.getCurrentTime() || 0
+        const d = p.getDuration() || 0
+        setCurrentTime(t)
+        if (d > 0) setDuration(d)
+      } catch (_) {}
+    }, 500)
+    return () => { if (ytTimerRef.current) clearInterval(ytTimerRef.current) }
+  }, [isYTSong])
+
+
   // Expandable player states
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeOverlayTab, setActiveOverlayTab] = useState('') // '' | 'lyrics' | 'xray' | 'queue'
@@ -461,12 +592,19 @@ export default function GlobalPlayer() {
   }
 
   const handleScrub = (e) => {
-    const audio = audioRef?.current
-    if (!audio || !duration) return
     const rect = e.currentTarget.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    audio.currentTime = pct * duration
-    setCurrentTime(audio.currentTime)
+    const seekTo = pct * duration
+    if (isYTSong) {
+      const p = ytPlayerRef.current
+      if (p) { try { p.seekTo(seekTo, true) } catch (_) {} }
+      setCurrentTime(seekTo)
+    } else {
+      const audio = audioRef?.current
+      if (!audio || !duration) return
+      audio.currentTime = seekTo
+      setCurrentTime(seekTo)
+    }
   }
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0
@@ -476,7 +614,12 @@ export default function GlobalPlayer() {
   // Playback speed sync
   useEffect(() => {
     if (audioRef?.current) audioRef.current.playbackRate = playbackSpeed
-  }, [playbackSpeed, audioRef])
+    // Also sync YT player speed
+    const p = ytPlayerRef.current
+    if (p && isYTSong) {
+      try { p.setPlaybackRate(playbackSpeed) } catch (_) {}
+    }
+  }, [playbackSpeed, audioRef, isYTSong])
 
   // Sleep timer countdown
   useEffect(() => {
@@ -863,6 +1006,9 @@ export default function GlobalPlayer() {
 
   return (
     <>
+      {/* Hidden YouTube IFrame Player container — mounts an invisible YT.Player for ytmusic tracks */}
+      <div ref={ytContainerRef} aria-hidden="true" style={{ position: 'fixed', width: 0, height: 0, overflow: 'hidden', zIndex: -1, pointerEvents: 'none' }} />
+
       {/* 1. MINI BOTTOM BAR PLAYER — Apple Music Style */}
       <div 
         className="fixed bottom-3 left-3 right-3 md:left-4 md:right-4 h-[72px] md:h-[80px] rounded-2xl px-4 md:px-5 flex items-center justify-between z-50 text-white select-none gpu-accel animate-spring-bounce"
