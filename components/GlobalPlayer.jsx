@@ -483,7 +483,10 @@ export default function GlobalPlayer() {
 
     const tick = () => {
       const audio = audioRef?.current
-      const t = audio ? audio.currentTime : 0
+      // For YT Music tracks the HTML5 audio is silent — read time from the IFrame player instead
+      const t = isYTSong && ytPlayerRef.current
+        ? (ytPlayerRef.current.getCurrentTime() || 0)
+        : (audio ? audio.currentTime : 0)
 
       // Binary search for current line
       let lo = 0, hi = parsedLyrics.length - 1, idx = -1
@@ -806,8 +809,13 @@ export default function GlobalPlayer() {
                     key={idx}
                     ref={el => { if (el) lineRefsMap.current[idx] = el }}
                     onClick={() => {
-                      const audio = audioRef?.current
-                      if (audio) { audio.currentTime = line.time; setCurrentTime(line.time) }
+                      if (isYTSong && ytPlayerRef.current) {
+                        try { ytPlayerRef.current.seekTo(line.time, true) } catch (_) {}
+                        setCurrentTime(line.time)
+                      } else {
+                        const audio = audioRef?.current
+                        if (audio) { audio.currentTime = line.time; setCurrentTime(line.time) }
+                      }
                     }}
                     style={{
                       transform: `scale(${scale})`,
