@@ -10,7 +10,9 @@ import { motion } from 'framer-motion'
 export default function DashboardLayout({ children }) {
   const { 
     activeMenu, setActiveMenu, customPlaylists, 
-    selectedPlaylistId, setSelectedPlaylistId, createNewPlaylist 
+    selectedPlaylistId, setSelectedPlaylistId, createNewPlaylist,
+    queue, playTrack, removeFromQueue, currentSong,
+    showQueueSidebar, setShowQueueSidebar
   } = useAudio()
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -173,6 +175,82 @@ export default function DashboardLayout({ children }) {
         >
           {children}
         </main>
+
+        {/* DESKTOP RIGHT SIDEBAR (QUEUE & MINI VIDEO PLAYER) */}
+        {showQueueSidebar && (
+          <aside 
+            className="w-72 lg:w-80 hidden md:flex flex-col gap-4 h-full shrink-0 p-3 overflow-hidden rounded-2xl"
+            style={{
+              background: 'rgba(18, 18, 20, 0.6)',
+              backdropFilter: 'blur(40px) saturate(150%)',
+              border: '1px solid rgba(255, 255, 255, 0.04)',
+              transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center pb-2 border-b border-white/[0.04] shrink-0">
+              <span className="text-[13px] font-bold tracking-wider uppercase text-zinc-300">Queue</span>
+              <button 
+                onClick={() => setShowQueueSidebar(false)}
+                className="text-zinc-500 hover:text-white text-xs px-1.5 py-0.5 rounded bg-white/[0.02] hover:bg-white/[0.06] transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable Queue list */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 pr-0.5 select-none">
+              {/* Now Playing in Queue */}
+              {currentSong && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold tracking-widest text-[#fa2d48]/90 uppercase pl-1">Now Playing</span>
+                  <div className="flex items-center gap-2.5 p-2 rounded-xl bg-blue-500/[0.1] border border-blue-500/20">
+                    {currentSong.image_url ? (
+                      <img src={currentSong.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 bg-zinc-900 rounded-lg flex items-center justify-center text-xs shrink-0">🎵</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{currentSong.title}</p>
+                      <p className="text-[10px] text-zinc-400 truncate mt-0.5">{currentSong.artist}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Up Next List */}
+              <div className="flex flex-col gap-1.5 mt-2">
+                <span className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase pl-1">Next Up</span>
+                {queue.length === 0 ? (
+                  <p className="text-[11px] text-zinc-600 italic pl-1 mt-1">Queue is empty</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {queue.map((song, idx) => (
+                      <div 
+                        key={song.id + '-layout-' + idx} 
+                        className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-white/[0.04] transition group/layoutq"
+                      >
+                        <span className="text-[9px] font-mono text-zinc-650 w-4 text-center">{idx + 1}</span>
+                        {song.image_url && <img src={song.image_url} alt="" className="w-8 h-8 object-cover rounded-lg shrink-0" />}
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => playTrack(song)}>
+                          <p className="text-xs font-semibold text-zinc-300 truncate group-hover/layoutq:text-white transition-colors">{song.title}</p>
+                          <p className="text-[9px] text-zinc-500 truncate mt-0.5">{song.artist}</p>
+                        </div>
+                        <button 
+                          onClick={() => removeFromQueue(song.id)}
+                          className="text-zinc-650 hover:text-red-400 opacity-0 group-hover/layoutq:opacity-100 transition-opacity p-1 text-xs shrink-0"
+                          title="Remove"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* MOBILE SLIDE-OUT SIDEBAR DRAWER */}

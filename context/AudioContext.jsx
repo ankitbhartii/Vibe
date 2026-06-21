@@ -6,7 +6,39 @@ const AudioContext = createContext()
 
 export function AudioProvider({ children }) {
   const [playlist, setPlaylist] = useState([])
-  const [currentSong, setCurrentSong] = useState(null)
+  const [currentSong, setCurrentSongState] = useState(null)
+
+  const setCurrentSong = useCallback((songOrFunc) => {
+    if (typeof songOrFunc === 'function') {
+      setCurrentSongState((prev) => {
+        const song = songOrFunc(prev)
+        if (song && typeof song === 'object') {
+          const normalized = { ...song }
+          const idStr = String(normalized.id || '')
+          if (idStr.startsWith('yt_')) {
+            normalized.source = 'ytmusic'
+            if (!normalized.rawId) {
+              normalized.rawId = idStr.replace('yt_', '')
+            }
+          }
+          return normalized
+        }
+        return song
+      })
+    } else if (songOrFunc && typeof songOrFunc === 'object') {
+      const normalized = { ...songOrFunc }
+      const idStr = String(normalized.id || '')
+      if (idStr.startsWith('yt_')) {
+        normalized.source = 'ytmusic'
+        if (!normalized.rawId) {
+          normalized.rawId = idStr.replace('yt_', '')
+        }
+      }
+      setCurrentSongState(normalized)
+    } else {
+      setCurrentSongState(songOrFunc)
+    }
+  }, [])
   const [isPlaying, setIsPlaying] = useState(false)
   const [isShuffle, setIsShuffle] = useState(false)
   const [isRepeat, setIsRepeat] = useState(false)
@@ -16,6 +48,8 @@ export function AudioProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [autoplayEnabled, setAutoplayEnabled] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showQueueSidebar, setShowQueueSidebar] = useState(true)
+
 
   const [history, setHistory] = useState([])
   const [savedAlbums, setSavedAlbums] = useState([])
@@ -205,6 +239,7 @@ export function AudioProvider({ children }) {
       )
       if (res.ok) {
         const recs = await res.json()
+        console.log(`📡 Autoplay: recommendations fetched:`, recs ? recs.length : 0)
         if (Array.isArray(recs) && recs.length > 0) {
           const firstRec = recs[0]
           // The rest go to the queue
@@ -244,20 +279,24 @@ export function AudioProvider({ children }) {
   }, [])
 
   const handleNext = useCallback(() => {
+    console.log("⏭ handleNext called. Playlist size:", playlist.length, "Queue size:", queue.length, "Current song:", currentSong?.title, "ID:", currentSong?.id)
     // 1. Play first item from queue if available
     if (queue.length > 0) {
       const nextSong = queue[0]
       setQueue(prev => prev.slice(1))
       setCurrentSong(nextSong)
       setIsPlaying(true)
+      console.log("⏭ handleNext playing from queue:", nextSong.title)
       return
     }
 
     // 2. Play from playlist
     if (playlist.length > 0 && currentSong) {
       const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
+      console.log("⏭ handleNext findIndex result:", idx)
       
       if (idx === -1) {
+        console.log("⏭ handleNext: idx is -1, autoplayEnabled:", autoplayEnabled)
         if (autoplayEnabled) {
           triggerAutoplayRecommendations()
         } else if (playlist.length > 0) {
@@ -269,6 +308,7 @@ export function AudioProvider({ children }) {
 
       const isEnd = idx === playlist.length - 1
       if (isEnd) {
+        console.log("⏭ handleNext: playlist reached end, isEnd=true, autoplayEnabled:", autoplayEnabled)
         if (autoplayEnabled) {
           triggerAutoplayRecommendations()
         } else {
@@ -280,11 +320,13 @@ export function AudioProvider({ children }) {
           ? playlist[Math.floor(Math.random() * playlist.length)]
           : playlist[idx + 1]
         if (next) {
+          console.log("⏭ handleNext playing next song in playlist:", next.title)
           setCurrentSong(next)
           setIsPlaying(true)
         }
       }
     } else if (autoplayEnabled && currentSong) {
+      console.log("⏭ handleNext: no playlist, calling triggerAutoplayRecommendations")
       triggerAutoplayRecommendations()
     }
   }, [playlist, currentSong, isShuffle, queue, autoplayEnabled, triggerAutoplayRecommendations])
@@ -494,7 +536,8 @@ export function AudioProvider({ children }) {
       queue, setQueue, autoplayEnabled, setAutoplayEnabled,
       playNext, addToQueue, removeFromQueue, clearQueue,
       playlist, setPlaylist,
-      searchQuery, setSearchQuery
+      searchQuery, setSearchQuery,
+      showQueueSidebar, setShowQueueSidebar
     }}>
       {children}
     </AudioContext.Provider>

@@ -50,52 +50,64 @@ export default function Header({ onMenuToggle, mobileMenuOpen }) {
 
   return (
     <header 
-      className="h-14 w-full flex items-center justify-between px-5 z-30 relative select-none gpu-accel"
+      className="h-16 w-full flex items-center justify-between px-5 z-30 relative select-none gpu-accel"
       style={{
-        background: scrolled ? 'rgba(0, 0, 0, 0.82)' : 'rgba(0, 0, 0, 0.5)',
+        background: scrolled ? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.7)',
         backdropFilter: `blur(${scrolled ? 40 : 20}px) saturate(180%)`,
         WebkitBackdropFilter: `blur(${scrolled ? 40 : 20}px) saturate(180%)`,
-        borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
         transition: 'background 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), backdrop-filter 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
       }}
     >
       
-      {/* LEFT SECTION */}
-      <div className="flex items-center gap-3 flex-1">
-        <Link 
-          href="/dashboard" 
-          className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#fa2d48] to-[#d91e36] flex items-center justify-center text-white font-black text-sm tracking-tight apple-press shadow-lg"
-          style={{ boxShadow: '0 4px 15px rgba(250, 45, 72, 0.3)' }}
-        >
-          V
+      {/* LEFT SECTION: Logo & Mobile Hamburger */}
+      <div className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-2 group mr-1 md:mr-2">
+          <svg className="w-9 h-6.5 shrink-0" viewBox="0 0 40 20" fill="none">
+            <defs>
+              <linearGradient id="wave-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#a855f7" />
+                <stop offset="50%" stopColor="#ec4899" />
+                <stop offset="100%" stopColor="#00d2ff" />
+              </linearGradient>
+            </defs>
+            <path d="M2 10 Q6 2, 10 10 T18 10 T26 10 T34 10 T38 10" stroke="url(#wave-grad)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 10 Q6 18, 10 10 T18 10 T26 10 T34 10 T38 10" stroke="url(#wave-grad)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
+          </svg>
+          <div className="flex items-center gap-0.5 font-bold text-md tracking-wider font-sans select-none">
+            <span className="text-[#00d2ff] uppercase tracking-wide text-base md:text-lg font-extrabold group-hover:text-white transition-colors">Bass</span>
+            <span className="text-white text-[10px] opacity-60 font-light">&</span>
+            <span className="text-[#00d2ff] uppercase tracking-wide text-base md:text-lg font-extrabold group-hover:text-white transition-colors">Top</span>
+          </div>
         </Link>
         {/* Mobile hamburger menu toggle */}
         {onMenuToggle && (
           <button 
             onClick={onMenuToggle} 
-            className="md:hidden w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-base apple-press transition-colors duration-300"
+            className="md:hidden w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-sm apple-press transition-colors duration-300"
             style={{ color: mobileMenuOpen ? '#fa2d48' : '#a1a1aa' }}
           >
             {mobileMenuOpen ? '✕' : '☰'}
           </button>
         )}
-        <button className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-lg apple-press transition-colors duration-300 hidden md:flex">
-          🏠
-        </button>
-        <div className="relative w-full max-w-md group">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm transition-transform duration-300 group-focus-within:scale-110">🔍</span>
+      </div>
+
+      {/* CENTER SECTION: Centered search bar */}
+      <div className="flex-1 max-w-xs sm:max-w-md md:max-w-lg mx-2 md:mx-auto">
+        <div className="relative w-full group">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 text-sm transition-transform duration-300 group-focus-within:scale-110">🔍</span>
           <input 
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="What do you want to play?" 
-            className="w-full bg-white/[0.06] hover:bg-white/[0.09] text-[13px] pl-10 pr-10 py-2.5 rounded-xl border border-transparent focus:border-white/[0.12] focus:bg-white/[0.09] focus:outline-none transition-all duration-400 placeholder-zinc-500 text-white font-medium"
+            placeholder="Search songs, artists, videos..." 
+            className="w-full bg-[#121214] hover:bg-[#161618] text-[12px] pl-10 pr-9 py-2 rounded-full border border-zinc-800 focus:border-zinc-700 focus:bg-black focus:outline-none transition-all duration-300 placeholder-zinc-550 text-white font-medium shadow-inner"
             style={{ transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery('')} 
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs apple-press"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs apple-press"
             >
               ✕
             </button>
