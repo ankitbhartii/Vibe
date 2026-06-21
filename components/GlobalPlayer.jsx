@@ -47,6 +47,24 @@ export default function GlobalPlayer() {
     if (!isYTSong || !currentSong?.rawId) return
 
     const videoId = currentSong.rawId
+    let rafId = null
+
+    // Stop any existing polling loop before creating a new player
+    if (ytTimerRef.current) { cancelAnimationFrame(ytTimerRef.current); ytTimerRef.current = null }
+
+    const startPolling = (player) => {
+      const tick = () => {
+        try {
+          const t = player.getCurrentTime() || 0
+          const d = player.getDuration() || 0
+          setCurrentTime(t)
+          if (d > 0) setDuration(d)
+        } catch (_) {}
+        rafId = requestAnimationFrame(tick)
+      }
+      rafId = requestAnimationFrame(tick)
+      ytTimerRef.current = rafId
+    }
 
     const initPlayer = () => {
       if (!ytReadyRef.current || !ytContainerRef.current) {
@@ -84,6 +102,8 @@ export default function GlobalPlayer() {
             if (isPlaying) e.target.playVideo()
             const d = e.target.getDuration()
             if (d && d > 0) setDuration(d)
+            // ── Start the rAF polling loop NOW — player is confirmed ready ──
+            startPolling(e.target)
           },
           onStateChange: (e) => {
             // YT.PlayerState: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
@@ -98,7 +118,6 @@ export default function GlobalPlayer() {
           },
           onError: (e) => {
             console.warn('[YT Player] Error code:', e.data)
-            // Try the next song on playback error
             handleNext()
           }
         }
@@ -108,7 +127,9 @@ export default function GlobalPlayer() {
     initPlayer()
 
     return () => {
-      if (ytTimerRef.current) clearInterval(ytTimerRef.current)
+      // Cancel rAF polling loop on song change or unmount
+      if (rafId) cancelAnimationFrame(rafId)
+      if (ytTimerRef.current) { cancelAnimationFrame(ytTimerRef.current); ytTimerRef.current = null }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.rawId])
@@ -128,25 +149,6 @@ export default function GlobalPlayer() {
     if (!p || !isYTSong) return
     try { p.setVolume(volume * 100) } catch (_) {}
   }, [volume, isYTSong])
-
-  // Poll YT player for currentTime & duration
-  useEffect(() => {
-    if (!isYTSong) {
-      if (ytTimerRef.current) { clearInterval(ytTimerRef.current); ytTimerRef.current = null }
-      return
-    }
-    ytTimerRef.current = setInterval(() => {
-      const p = ytPlayerRef.current
-      if (!p) return
-      try {
-        const t = p.getCurrentTime() || 0
-        const d = p.getDuration() || 0
-        setCurrentTime(t)
-        if (d > 0) setDuration(d)
-      } catch (_) {}
-    }, 500)
-    return () => { if (ytTimerRef.current) clearInterval(ytTimerRef.current) }
-  }, [isYTSong])
 
 
   // Expandable player states
