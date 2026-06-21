@@ -1,6 +1,99 @@
 import { getYTStream } from '@/utils/ytmusic'
+import { searchSongs, getSongStreamUrl } from '@/utils/saavn'
 
 export const dynamic = 'force-dynamic'
+
+function cleanSearchQuery(title, artist) {
+  if (!title) return ''
+  let cleanTitle = title
+    .replace(/\(.*?\)/g, '')
+    .replace(/\[.*?\]/g, '')
+    .replace(/official video/i, '')
+    .replace(/official music video/i, '')
+    .replace(/official audio/i, '')
+    .replace(/lyric video/i, '')
+    .replace(/lyrics/i, '')
+    .replace(/hd/i, '')
+    .replace(/4k/i, '')
+    .trim()
+
+  let cleanArtist = (artist || '')
+    .replace(/vevo/i, '')
+    .replace(/official/i, '')
+    .trim()
+
+  return `${cleanTitle} ${cleanArtist}`.trim()
+}
+
+function findBestSaavnMatch(saavnSongs, ytTitle) {
+  const lowercaseYtTitle = ytTitle.toLowerCase();
+  const isYtInstrumental = lowercaseYtTitle.includes('instrumental') || lowercaseYtTitle.includes('karaoke');
+  const isYtCover = lowercaseYtTitle.includes('cover') || lowercaseYtTitle.includes('tribute') || lowercaseYtTitle.includes('tribute cover');
+  const isYtRemix = lowercaseYtTitle.includes('remix');
+
+  for (const song of saavnSongs) {
+    const lowercaseSaavnTitle = song.title.toLowerCase();
+    
+    const isSaavnInstrumental = lowercaseSaavnTitle.includes('instrumental') || lowercaseSaavnTitle.includes('karaoke');
+    const isSaavnCover = lowercaseSaavnTitle.includes('cover') || lowercaseSaavnTitle.includes('tribute') || lowercaseSaavnTitle.includes('tribute cover');
+    const isSaavnRemix = lowercaseSaavnTitle.includes('remix');
+
+    if (!isYtInstrumental && isSaavnInstrumental) continue;
+    if (!isYtCover && isSaavnCover) continue;
+    if (!isYtRemix && isSaavnRemix) continue;
+
+    return song;
+  }
+
+  return saavnSongs[0];
+}
+
+async function getJioSaavnFallbackUrl(id) {
+  try {
+    let title = null
+    let author = null
+
+    try {
+      console.log(`📡 Fetching metadata for YouTube video ID ${id} via oEmbed...`)
+      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`)
+      if (res.ok) {
+        const data = await res.json()
+        title = data.title
+        author = data.author_name
+        console.log(`✅ Metadata resolved via oEmbed: "${title}" by "${author}"`)
+      }
+    } catch (oembedErr) {
+      console.warn(`⚠️ oEmbed metadata lookup failed:`, oembedErr.message)
+    }
+
+    if (!title || !author) {
+      console.log(`📡 Falling back to Innertube for metadata resolution...`)
+      const { getYtInstance } = await import('@/utils/ytmusic')
+      const yt = await getYtInstance()
+      const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
+      title = info.basic_info?.title
+      author = info.basic_info?.author
+    }
+
+    if (title && author) {
+      const query = cleanSearchQuery(title, author)
+      console.log(`🔍 Searching JioSaavn for fallback: "${query}"`)
+      const saavnSongs = await searchSongs(query, 5)
+
+      if (saavnSongs.length > 0) {
+        const bestMatch = findBestSaavnMatch(saavnSongs, title)
+        console.log(`✅ Found JioSaavn match: ${bestMatch.title} (ID: ${bestMatch.rawId})`)
+        const streamUrl = await getSongStreamUrl(bestMatch.rawId)
+        if (streamUrl) {
+          return streamUrl
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`❌ JioSaavn fallback failed:`, err.message)
+  }
+  return null
+}
 
 export async function GET(request, { params }) {
   try {
@@ -70,7 +163,20 @@ export async function GET(request, { params }) {
       })
     }
 
-    console.error(`❌ Could not resolve YouTube stream for: ${id}`)
+    console.log(`⚠️ YouTube stream resolution failed. Attempting JioSaavn fallback for ID: ${id}...`)
+    const fallbackUrl = await getJioSaavnFallbackUrl(id)
+    if (fallbackUrl) {
+      console.log(`✅ Redirecting to JioSaavn fallback: ${fallbackUrl}`)
+      return new Response(null, {
+        status: 307,
+        headers: {
+          'Location': fallbackUrl,
+          'Cache-Control': 'public, max-age=60'
+        }
+      })
+    }
+
+    console.error(`❌ Could not resolve YouTube stream or find fallback for: ${id}`)
     return new Response('Stream could not be resolved', { status: 404 })
   } catch (error) {
     console.error('❌ YouTube Music Play API route failure:', error)

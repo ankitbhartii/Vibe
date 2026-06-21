@@ -114,7 +114,7 @@ export async function searchYTMusic(query, limit = 20) {
   } catch (err) {
     console.error("❌ YouTube Music search utility error:", err)
     // Clear instance to force recreation next time on error
-    ytInstanceDirect = null
+    ytInstance = null
     return []
   }
 }
