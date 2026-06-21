@@ -458,11 +458,11 @@ export default function MainDashboardPage() {
           setSearchStatus('❌ No records matched this query.')
         } else {
           setSearchStatus('')
-          // Default to JioSaavn songs if present, else YT Music, else albums
-          if ((saavnRes.songs?.length || 0) > 0) {
-            setActiveSearchTab('songs')
-          } else if ((ytRes.songs?.length || 0) > 0) {
+          // Prefer YouTube Music tab first (most songs available), then JioSaavn, then albums
+          if ((ytRes.songs?.length || 0) > 0) {
             setActiveSearchTab('ytmusic')
+          } else if ((saavnRes.songs?.length || 0) > 0) {
+            setActiveSearchTab('songs')
           } else if ((saavnRes.albums?.length || 0) > 0) {
             setActiveSearchTab('albums')
           } else {
@@ -813,16 +813,16 @@ export default function MainDashboardPage() {
             {/* Tab controls */}
             <div className="flex gap-2 border-b border-zinc-900 pb-2 overflow-x-auto scrollbar-none">
               <button 
-                onClick={() => setActiveSearchTab('songs')}
-                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'songs' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
-              >
-                🎵 Songs ({(searchResults?.songs || []).length})
-              </button>
-              <button 
                 onClick={() => setActiveSearchTab('ytmusic')}
                 className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'ytmusic' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
-                🎥 YouTube Music ({ytSearchResults.length})
+                ▶ YouTube ({ytSearchResults.length})
+              </button>
+              <button 
+                onClick={() => setActiveSearchTab('songs')}
+                className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'songs' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
+              >
+                🎵 JioSaavn ({(searchResults?.songs || []).length})
               </button>
               <button 
                 onClick={() => setActiveSearchTab('albums')}
