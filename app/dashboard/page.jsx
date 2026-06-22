@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useAudio } from '@/context/AudioContext'
@@ -431,7 +431,7 @@ export default function MainDashboardPage() {
       return
     }
 
-    setSearchStatus('⚡ Searching online catalogs...')
+    setSearchStatus('âš¡ Searching online catalogs...')
     setSearchLoading(true)
 
     const delayDebounceFn = setTimeout(async () => {
@@ -455,7 +455,7 @@ export default function MainDashboardPage() {
         
         const totalMatches = (saavnRes.songs?.length || 0) + (saavnRes.albums?.length || 0) + (saavnRes.playlists?.length || 0) + (ytRes.songs?.length || 0)
         if (totalMatches === 0) {
-          setSearchStatus('❌ No records matched this query.')
+          setSearchStatus('âŒ No records matched this query.')
         } else {
           setSearchStatus('')
           // Prefer YouTube Music tab first (most songs available), then JioSaavn, then albums
@@ -471,7 +471,7 @@ export default function MainDashboardPage() {
         }
       } catch (err) {
         console.error("Search API error:", err)
-        setSearchStatus('❌ Failed to establish search stream channels.')
+        setSearchStatus('âŒ Failed to establish search stream channels.')
       } finally {
         setSearchLoading(false)
       }
@@ -548,10 +548,10 @@ export default function MainDashboardPage() {
         .insert([{ playlist_id: playlistId, song_id: targetSongId }])
       
       if (!juncError) {
-        alert("✨ Saved seamlessly to your custom library playlist!")
+        alert("âœ¨ Saved seamlessly to your custom library playlist!")
         setPlaylistMenuOpenId(null)
       } else {
-        alert("💡 This song is already a member of that playlist.")
+        alert("ðŸ’¡ This song is already a member of that playlist.")
       }
     } catch (err) {
       console.error(err)
@@ -599,34 +599,53 @@ export default function MainDashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-7 flex flex-col gap-6 bg-black min-h-screen text-[#f5f5f7] animate-fade-in">
+    <div className="p-4 md:p-7 flex flex-col gap-6 min-h-screen text-[#f5f5f7] animate-fade-in" style={{ background: 'transparent' }}>
       
-      {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/[0.04] pb-4">
+      {/* PAGE HEADER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4"
+        style={{ borderBottom: '1px solid rgba(255,45,85,0.1)' }}
+      >
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Vibe Music</h1>
-          <p className="text-[11px] text-[#fa2d48] font-semibold uppercase tracking-[0.15em] mt-1">{getHeaderTitle()}</p>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight" style={{
+            background: 'linear-gradient(135deg, #fff 0%, #ff6b8a 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+          }}>Vibe Music</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mt-1" style={{ color: '#ff2d55' }}>{getHeaderTitle()}</p>
         </div>
         {isAdmin && (
-          <Link href="/admin" className="bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.06] text-zinc-300 hover:text-white font-semibold text-xs py-2.5 px-5 rounded-full apple-press shrink-0" style={{ transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
-            ⚙️ Upload Center
+          <Link href="/admin"
+            className="font-semibold text-xs py-2.5 px-5 rounded-full shrink-0 transition-all duration-300"
+            style={{
+              background: 'rgba(255,45,85,0.1)',
+              border: '1px solid rgba(255,45,85,0.25)',
+              color: '#ff6b8a',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,45,85,0.2)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,45,85,0.1)'; e.currentTarget.style.color = '#ff6b8a' }}
+          >
+            âš™ï¸ Upload Center
           </Link>
         )}
       </div>
 
-      {/* COMPACT SEARCH INPUT */}
+      {/* SEARCH INPUT */}
       <div className="relative w-full max-w-sm group">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm" style={{ transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>🔍</span>
-        <input 
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm transition-all duration-300" style={{ color: '#52525b' }}>ðŸ”</span>
+        <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search songs, albums, playlists..."
-          className="w-full bg-white/[0.05] hover:bg-white/[0.07] text-[13px] pl-10 pr-4 py-2.5 rounded-xl border border-transparent focus:border-white/[0.1] focus:bg-white/[0.07] focus:outline-none placeholder-zinc-600 text-white font-medium"
-          style={{ transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
+          className="w-full text-[13px] pl-10 pr-4 py-2.5 rounded-xl text-white font-medium placeholder-zinc-600 outline-none transition-all duration-300"
+          style={{
+            background: 'rgba(18,18,20,0.8)',
+            border: '1px solid rgba(255,255,255,0.07)',
+          }}
+          onFocus={e => { e.target.style.borderColor = 'rgba(255,45,85,0.5)'; e.target.style.boxShadow = '0 0 0 2px rgba(255,45,85,0.12)' }}
+          onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.07)'; e.target.style.boxShadow = 'none' }}
         />
         {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs apple-press">✕</button>
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-[#ff2d55] text-xs transition-colors">âœ•</button>
         )}
       </div>
 
@@ -645,7 +664,7 @@ export default function MainDashboardPage() {
               onClick={() => setSelectedSaavnItem(null)} 
               className="flex items-center gap-2 text-zinc-400 hover:text-white text-xs font-bold transition-colors mb-2 w-max"
             >
-              ← Back to Browse
+              â† Back to Browse
             </button>
 
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-end bg-gradient-to-b from-zinc-900/60 to-transparent p-6 rounded-3xl border border-zinc-900/40">
@@ -657,8 +676,8 @@ export default function MainDashboardPage() {
                 <h2 className="text-2xl md:text-4xl font-extrabold text-white leading-tight truncate">{selectedSaavnItem.title}</h2>
                 <p className="text-sm text-zinc-400 font-medium">
                   {selectedSaavnItem.artist || selectedSaavnItem.subtitle || 'JioSaavn Collection'}
-                  {selectedSaavnItem.year && ` • ${selectedSaavnItem.year}`}
-                  {saavnItemTracks.length > 0 && ` • ${saavnItemTracks.length} tracks`}
+                  {selectedSaavnItem.year && ` â€¢ ${selectedSaavnItem.year}`}
+                  {saavnItemTracks.length > 0 && ` â€¢ ${saavnItemTracks.length} tracks`}
                 </p>
                 <div className="flex flex-wrap gap-3 mt-3 justify-center md:justify-start">
                   {saavnItemTracks.length > 0 && (
@@ -666,7 +685,7 @@ export default function MainDashboardPage() {
                       onClick={() => playTrack(saavnItemTracks[0], saavnItemTracks)}
                       className="bg-[#fa2d48] hover:bg-[#ff4466] text-black font-extrabold text-xs py-3 px-8 rounded-full uppercase tracking-wider transition-all shadow-md transform hover:scale-105 active:scale-95 w-max mx-auto md:mx-0"
                     >
-                      ▶ Play {selectedSaavnItem.type === 'artist' ? 'Top Songs' : selectedSaavnItem.type === 'radio' ? 'Radio Mix' : 'Content'}
+                      â–¶ Play {selectedSaavnItem.type === 'artist' ? 'Top Songs' : selectedSaavnItem.type === 'radio' ? 'Radio Mix' : 'Content'}
                     </button>
                   )}
                   {selectedSaavnItem.type === 'album' && (
@@ -674,7 +693,7 @@ export default function MainDashboardPage() {
                       onClick={() => toggleSaveAlbum(selectedSaavnItem)}
                       className="border border-zinc-700 bg-transparent text-white font-bold text-xs py-3 px-6 rounded-full transition-all hover:bg-zinc-900 w-max"
                     >
-                      {savedAlbums.some(a => String(a.id) === String(selectedSaavnItem.id)) ? '💚 Saved to Library' : '➕ Save to Library'}
+                      {savedAlbums.some(a => String(a.id) === String(selectedSaavnItem.id)) ? 'ðŸ’š Saved to Library' : 'âž• Save to Library'}
                     </button>
                   )}
                   {selectedSaavnItem.type === 'artist' && (
@@ -682,7 +701,7 @@ export default function MainDashboardPage() {
                       onClick={() => toggleFollowArtist({ id: selectedSaavnItem.id, title: selectedSaavnItem.title || selectedSaavnItem.name, image_url: selectedSaavnItem.image_url })}
                       className="border border-zinc-700 bg-transparent text-white font-bold text-xs py-3 px-6 rounded-full transition-all hover:bg-zinc-900 w-max"
                     >
-                      {savedArtists.some(a => String(a.id) === String(selectedSaavnItem.id)) ? '👤 Following' : '➕ Follow Artist'}
+                      {savedArtists.some(a => String(a.id) === String(selectedSaavnItem.id)) ? 'ðŸ‘¤ Following' : 'âž• Follow Artist'}
                     </button>
                   )}
                   {(selectedSaavnItem.type === 'show' || (selectedSaavnItem.type === 'playlist' && (selectedSaavnItem.title?.toLowerCase().includes('podcast') || activeMenu === 'podcasts' || activeMenu === 'library_podcasts'))) && (
@@ -690,7 +709,7 @@ export default function MainDashboardPage() {
                       onClick={() => toggleSubscribePodcast({ id: selectedSaavnItem.id, title: selectedSaavnItem.title, image_url: selectedSaavnItem.image_url, subtitle: selectedSaavnItem.subtitle || 'Podcast' })}
                       className="border border-zinc-700 bg-transparent text-white font-bold text-xs py-3 px-6 rounded-full transition-all hover:bg-zinc-900 w-max"
                     >
-                      {savedPodcasts.some(p => String(p.id) === String(selectedSaavnItem.id)) ? '🔔 Subscribed' : '➕ Subscribe'}
+                      {savedPodcasts.some(p => String(p.id) === String(selectedSaavnItem.id)) ? 'ðŸ”” Subscribed' : 'âž• Subscribe'}
                     </button>
                   )}
                 </div>
@@ -701,7 +720,7 @@ export default function MainDashboardPage() {
             <div className="flex flex-col gap-1.5 mt-2 bg-zinc-950/20 rounded-2xl border border-zinc-900/50 p-4">
               <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2 border-b border-zinc-900 pb-2 mb-2">Tracklist</h3>
               {saavnItemLoading ? (
-                <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING ALBUM TRACKS...</div>
+                <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING ALBUM TRACKS...</div>
               ) : saavnItemTracks.length === 0 ? (
                 <div className="p-8 text-center text-xs text-zinc-600">No tracks found.</div>
               ) : (
@@ -716,7 +735,7 @@ export default function MainDashboardPage() {
                       >
                         <div className="flex items-center gap-4 min-w-0 flex-1">
                           <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
-                            {isCurrentTrack && isPlaying ? '🔊' : index + 1}
+                            {isCurrentTrack && isPlaying ? 'ðŸ”Š' : index + 1}
                           </span>
                           <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
                           <div className="flex flex-col min-w-0">
@@ -741,7 +760,7 @@ export default function MainDashboardPage() {
                               className={`text-xs p-1 hover:scale-115 transition shrink-0 ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
                               title="Favorite"
                             >
-                              💚
+                              ðŸ’š
                             </button>
                             {customPlaylists?.length > 0 && (
                               <button 
@@ -749,7 +768,7 @@ export default function MainDashboardPage() {
                                 className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
                                 title="Add to Playlist"
                               >
-                                ➕
+                                âž•
                               </button>
                             )}
                           </div>
@@ -765,7 +784,7 @@ export default function MainDashboardPage() {
                                 onClick={(e) => handleAddToPlaylist(e, song, p.id)}
                                 className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
                               >
-                                📁 {p.name}
+                                ðŸ“ {p.name}
                               </button>
                             ))}
                           </div>
@@ -780,7 +799,7 @@ export default function MainDashboardPage() {
             {/* Top Albums if Artist */}
             {selectedSaavnItem.type === 'artist' && artistAlbums.length > 0 && (
               <div className="flex flex-col gap-4 mt-8 animate-float-in">
-                <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider px-2">Top Albums</h3>
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em] px-2" style={{ color: "#ff2d55" }}>Top Albums</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                   {artistAlbums.map((album, index) => (
                     <div key={`${album.id}-${index}`} onClick={() => fetchItemDetails(album)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover">
@@ -794,7 +813,7 @@ export default function MainDashboardPage() {
                         )}
                         <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                           <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                            <span className="text-sm font-bold">▶</span>
+                            <span className="text-sm font-bold">â–¶</span>
                           </div>
                         </div>
                       </div>
@@ -816,30 +835,30 @@ export default function MainDashboardPage() {
                 onClick={() => setActiveSearchTab('ytmusic')}
                 className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'ytmusic' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
-                ▶ YouTube ({ytSearchResults.length})
+                â–¶ YouTube ({ytSearchResults.length})
               </button>
               <button 
                 onClick={() => setActiveSearchTab('songs')}
                 className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'songs' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
-                🎵 JioSaavn ({(searchResults?.songs || []).length})
+                ðŸŽµ JioSaavn ({(searchResults?.songs || []).length})
               </button>
               <button 
                 onClick={() => setActiveSearchTab('albums')}
                 className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'albums' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
-                💽 Albums ({(searchResults?.albums || []).length})
+                ðŸ’½ Albums ({(searchResults?.albums || []).length})
               </button>
               <button 
                 onClick={() => setActiveSearchTab('playlists')}
                 className={`py-2 px-5 text-xs font-semibold uppercase tracking-wider rounded-xl transition shrink-0 ${activeSearchTab === 'playlists' ? 'bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20' : 'text-zinc-500 hover:text-white'}`}
               >
-                📁 Playlists ({(searchResults?.playlists || []).length})
+                ðŸ“ Playlists ({(searchResults?.playlists || []).length})
               </button>
             </div>
 
             {searchLoading ? (
-              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ GATHERING API MATCHES...</div>
+              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ GATHERING API MATCHES...</div>
             ) : (
               <div className="mt-2">
                 {/* 1. SONGS TAB */}
@@ -848,7 +867,7 @@ export default function MainDashboardPage() {
                     {/* JioSaavn Songs Section */}
                     {((searchResults?.songs || []).length > 0) && (
                       <div className="flex flex-col gap-3">
-                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-1">🎵 JioSaavn Songs</h3>
+                        <h3 className="text-xs font-bold uppercase tracking-[0.15em] px-1 flex items-center gap-2" style={{ color: "#ff2d55" }}>ðŸŽµ JioSaavn Songs</h3>
                         <div className="flex flex-col gap-1">
                           {searchResults.songs.map((song) => {
                             const isCurrentTrack = currentSong?.id === song.id
@@ -862,7 +881,7 @@ export default function MainDashboardPage() {
                                   <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
                                   <div className="flex flex-col min-w-0">
                                     <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
+                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ {song.album}</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -880,7 +899,7 @@ export default function MainDashboardPage() {
                                       className={`text-xs p-1 hover:scale-115 transition shrink-0 ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
                                       title="Favorite"
                                     >
-                                      💚
+                                      ðŸ’š
                                     </button>
                                     {customPlaylists?.length > 0 && (
                                       <button 
@@ -888,7 +907,7 @@ export default function MainDashboardPage() {
                                         className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
                                         title="Add to Playlist"
                                       >
-                                        ➕
+                                        âž•
                                       </button>
                                     )}
                                   </div>
@@ -902,7 +921,7 @@ export default function MainDashboardPage() {
                                         onClick={(e) => handleAddToPlaylist(e, song, p.id)}
                                         className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
                                       >
-                                        📁 {p.name}
+                                        ðŸ“ {p.name}
                                       </button>
                                     ))}
                                   </div>
@@ -917,7 +936,7 @@ export default function MainDashboardPage() {
                     {/* YouTube Music Tracks Section */}
                     {(ytSearchResults.length > 0) && (
                       <div className="flex flex-col gap-3">
-                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-1">🎥 YouTube Music Tracks</h3>
+                        <h3 className="text-xs font-bold uppercase tracking-[0.15em] px-1 flex items-center gap-2" style={{ color: "#ff2d55" }}>ðŸŽ¥ YouTube Music Tracks</h3>
                         <div className="flex flex-col gap-1">
                           {ytSearchResults.map((song) => {
                             const isCurrentTrack = currentSong?.id === song.id
@@ -931,11 +950,11 @@ export default function MainDashboardPage() {
                                   {song.image_url ? (
                                     <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
                                   ) : (
-                                    <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center rounded-lg shrink-0">🎥</div>
+                                    <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center rounded-lg shrink-0">ðŸŽ¥</div>
                                   )}
                                   <div className="flex flex-col min-w-0">
                                     <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • YouTube Stream</span>
+                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ YouTube Stream</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -953,7 +972,7 @@ export default function MainDashboardPage() {
                                       className={`text-xs p-1 hover:scale-115 transition shrink-0 ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
                                       title="Favorite"
                                     >
-                                      💚
+                                      ðŸ’š
                                     </button>
                                     {customPlaylists?.length > 0 && (
                                       <button 
@@ -961,7 +980,7 @@ export default function MainDashboardPage() {
                                         className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
                                         title="Add to Playlist"
                                       >
-                                        ➕
+                                        âž•
                                       </button>
                                     )}
                                   </div>
@@ -975,7 +994,7 @@ export default function MainDashboardPage() {
                                         onClick={(e) => handleAddToPlaylist(e, song, p.id)}
                                         className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
                                       >
-                                        📁 {p.name}
+                                        ðŸ“ {p.name}
                                       </button>
                                     ))}
                                   </div>
@@ -1012,11 +1031,11 @@ export default function MainDashboardPage() {
                                 {song.image_url ? (
                                   <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
                                 ) : (
-                                  <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center rounded-lg shrink-0">🎥</div>
+                                  <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center rounded-lg shrink-0">ðŸŽ¥</div>
                                 )}
                                 <div className="flex flex-col min-w-0">
                                   <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                                  <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • YouTube Stream</span>
+                                  <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ YouTube Stream</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -1034,7 +1053,7 @@ export default function MainDashboardPage() {
                                     className={`text-xs p-1 hover:scale-115 transition shrink-0 ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
                                     title="Favorite"
                                   >
-                                    💚
+                                    ðŸ’š
                                   </button>
                                   {customPlaylists?.length > 0 && (
                                     <button 
@@ -1042,7 +1061,7 @@ export default function MainDashboardPage() {
                                       className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
                                       title="Add to Playlist"
                                     >
-                                      ➕
+                                      âž•
                                     </button>
                                   )}
                                 </div>
@@ -1056,7 +1075,7 @@ export default function MainDashboardPage() {
                                       onClick={(e) => handleAddToPlaylist(e, song, p.id)}
                                       className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
                                     >
-                                      📁 {p.name}
+                                      ðŸ“ {p.name}
                                     </button>
                                   ))}
                                 </div>
@@ -1087,7 +1106,7 @@ export default function MainDashboardPage() {
                             )}
                             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                                <span className="text-sm font-bold">▶</span>
+                                <span className="text-sm font-bold">â–¶</span>
                               </div>
                             </div>
                           </div>
@@ -1119,7 +1138,7 @@ export default function MainDashboardPage() {
                             )}
                             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                                <span className="text-sm font-bold">▶</span>
+                                <span className="text-sm font-bold">â–¶</span>
                               </div>
                             </div>
                           </div>
@@ -1139,9 +1158,9 @@ export default function MainDashboardPage() {
           
           // ================== TOP CHARTS VIEW ==================
           <div className="flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📈 Top Charts</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ“ˆ Top Charts</h2>
             {saavnHomeLoading ? (
-              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING CHARTS...</div>
+              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING CHARTS...</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {(saavnHome.charts || []).map((item, index) => (
@@ -1156,7 +1175,7 @@ export default function MainDashboardPage() {
                       )}
                       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                          <span className="text-sm font-bold">▶</span>
+                          <span className="text-sm font-bold">â–¶</span>
                         </div>
                       </div>
                     </div>
@@ -1173,9 +1192,9 @@ export default function MainDashboardPage() {
           
           // ================== TOP PLAYLISTS VIEW ==================
           <div className="flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📁 Featured Playlists</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ“ Featured Playlists</h2>
             {saavnHomeLoading ? (
-              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING PLAYLISTS...</div>
+              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING PLAYLISTS...</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {(saavnHome.top_playlists || []).map((item, index) => (
@@ -1190,7 +1209,7 @@ export default function MainDashboardPage() {
                       )}
                       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                          <span className="text-sm font-bold">▶</span>
+                          <span className="text-sm font-bold">â–¶</span>
                         </div>
                       </div>
                     </div>
@@ -1207,9 +1226,9 @@ export default function MainDashboardPage() {
           
           // ================== TOP ARTISTS VIEW ==================
           <div className="flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">👤 Popular Artists</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ‘¤ Popular Artists</h2>
             {topArtistsLoading ? (
-              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING POPULAR ARTISTS...</div>
+              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING POPULAR ARTISTS...</div>
             ) : topArtistsList.length === 0 ? (
               <p className="text-xs text-zinc-500">No artists found.</p>
             ) : (
@@ -1230,7 +1249,7 @@ export default function MainDashboardPage() {
                       )}
                       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                          <span className="text-sm font-bold">▶</span>
+                          <span className="text-sm font-bold">â–¶</span>
                         </div>
                       </div>
                     </div>
@@ -1249,7 +1268,7 @@ export default function MainDashboardPage() {
           <div className="flex flex-col gap-8 animate-fade-in">
             {/* Podcast search input */}
             <div className="relative w-full max-w-sm bg-zinc-950/80 border border-zinc-900 rounded-2xl px-4 py-2.5 flex items-center gap-3 focus-within:border-[#fa2d48]/50 focus-within:shadow-[0_0_15px_rgba(29,185,84,0.1)] transition-all">
-              <span className="text-zinc-600 text-sm">🎙️</span>
+              <span className="text-zinc-600 text-sm">ðŸŽ™ï¸</span>
               <input 
                 type="text"
                 value={podcastSearchQuery}
@@ -1258,16 +1277,16 @@ export default function MainDashboardPage() {
                 className="bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none w-full font-sans antialiased"
               />
               {podcastSearchQuery && (
-                <button onClick={() => setPodcastSearchQuery('')} className="text-zinc-600 hover:text-white text-xs px-0.5">✕</button>
+                <button onClick={() => setPodcastSearchQuery('')} className="text-zinc-600 hover:text-white text-xs px-0.5">âœ•</button>
               )}
             </div>
 
             {podcastSearchQuery.trim() ? (
               /* Podcast Search Results Grid */
               <div className="flex flex-col gap-4">
-                <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🔍 Podcast Results for "{podcastSearchQuery}"</h2>
+                <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ” Podcast Results for "{podcastSearchQuery}"</h2>
                 {podcastSearchLoading ? (
-                  <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ SEARCHING SHOWS...</div>
+                  <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ SEARCHING SHOWS...</div>
                 ) : !podcastSearchResults || podcastSearchResults.length === 0 ? (
                   <p className="text-xs text-zinc-500">No shows found matching this search.</p>
                 ) : (
@@ -1279,12 +1298,12 @@ export default function MainDashboardPage() {
                             <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
-                              🎙️
+                              ðŸŽ™ï¸
                             </div>
                           )}
                           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                              <span className="text-sm font-bold">▶</span>
+                              <span className="text-sm font-bold">â–¶</span>
                             </div>
                           </div>
                         </div>
@@ -1302,7 +1321,7 @@ export default function MainDashboardPage() {
               <>
                 {/* 1. ALL PODCASTS GRID */}
                 <div className="flex flex-col gap-4">
-                  <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎙️ All Podcasts</h2>
+                  <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸŽ™ï¸ All Podcasts</h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                     {TRENDING_PODCASTS.map((item, index) => (
                       <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="flex flex-col gap-2.5 group cursor-pointer relative apple-card-hover animate-float-in apple-card-hover">
@@ -1311,12 +1330,12 @@ export default function MainDashboardPage() {
                             <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
-                              🎙️
+                              ðŸŽ™ï¸
                             </div>
                           )}
                           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                              <span className="text-sm font-bold">▶</span>
+                              <span className="text-sm font-bold">â–¶</span>
                             </div>
                           </div>
                         </div>
@@ -1331,9 +1350,9 @@ export default function MainDashboardPage() {
 
                 {/* 2. DYNAMIC PODCASTS GRID */}
                 <div className="flex flex-col gap-4">
-                  <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎙️ More Shows & Audiobooks</h2>
+                  <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸŽ™ï¸ More Shows & Audiobooks</h2>
                   {podcastsLoading ? (
-                    <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING PODCASTS...</div>
+                    <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING PODCASTS...</div>
                   ) : podcastsList.length === 0 ? (
                     <p className="text-xs text-zinc-500">No podcasts found.</p>
                   ) : (
@@ -1345,12 +1364,12 @@ export default function MainDashboardPage() {
                               <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
-                                🎙️
+                                ðŸŽ™ï¸
                               </div>
                             )}
                             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                                <span className="text-sm font-bold">▶</span>
+                                <span className="text-sm font-bold">â–¶</span>
                               </div>
                             </div>
                           </div>
@@ -1370,9 +1389,9 @@ export default function MainDashboardPage() {
           
           // ================== RADIO VIEW ==================
           <div className="flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📻 JioSaavn Live Radio</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ“» JioSaavn Live Radio</h2>
             {saavnHomeLoading ? (
-              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING RADIO STATIONS...</div>
+              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING RADIO STATIONS...</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {(saavnHome.radio || []).map((item, index) => (
@@ -1382,12 +1401,12 @@ export default function MainDashboardPage() {
                         <img src={item.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
-                          📻
+                          ðŸ“»
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                          <span className="text-sm font-bold">▶</span>
+                          <span className="text-sm font-bold">â–¶</span>
                         </div>
                       </div>
                     </div>
@@ -1404,10 +1423,10 @@ export default function MainDashboardPage() {
           
           // ================== USER HISTORY VIEW ==================
           <div className="flex flex-col gap-4 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🕒 Recently Played</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ•’ Recently Played</h2>
             {history.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
-                <span className="text-2xl">🕒</span>
+                <span className="text-2xl">ðŸ•’</span>
                 <p className="text-xs text-zinc-500">No listening history yet. Start playing your favorite tracks and we will track them here!</p>
               </div>
             ) : (
@@ -1422,12 +1441,12 @@ export default function MainDashboardPage() {
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
                         <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
-                          {isCurrentTrack && isPlaying ? '🔊' : idx + 1}
+                          {isCurrentTrack && isPlaying ? 'ðŸ”Š' : idx + 1}
                         </span>
                         <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
                         <div className="flex flex-col min-w-0">
                           <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                          <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
+                          <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ {song.album}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -1445,7 +1464,7 @@ export default function MainDashboardPage() {
                             className={`text-xs p-1 hover:scale-115 transition ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
                             title="Favorite"
                           >
-                            💚
+                            ðŸ’š
                           </button>
                         </div>
                       </div>
@@ -1459,10 +1478,10 @@ export default function MainDashboardPage() {
           
           // ================== USER SAVED ALBUMS VIEW ==================
           <div className="flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">💽 Saved Albums</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ’½ Saved Albums</h2>
             {savedAlbums.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
-                <span className="text-2xl">💽</span>
+                <span className="text-2xl">ðŸ’½</span>
                 <p className="text-xs text-zinc-500">You haven't saved any albums yet. Click on any album profile and click "Save to Library"!</p>
               </div>
             ) : (
@@ -1479,7 +1498,7 @@ export default function MainDashboardPage() {
                       )}
                       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                          <span className="text-sm font-bold">▶</span>
+                          <span className="text-sm font-bold">â–¶</span>
                         </div>
                       </div>
                     </div>
@@ -1496,10 +1515,10 @@ export default function MainDashboardPage() {
           
           // ================== USER SAVED PODCASTS VIEW ==================
           <div className="flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎙️ Subscribed Podcasts</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸŽ™ï¸ Subscribed Podcasts</h2>
             {savedPodcasts.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
-                <span className="text-2xl">🎙️</span>
+                <span className="text-2xl">ðŸŽ™ï¸</span>
                 <p className="text-xs text-zinc-500">You haven't subscribed to any podcasts yet. Explore the Podcasts directory and click "Subscribe"!</p>
               </div>
             ) : (
@@ -1511,12 +1530,12 @@ export default function MainDashboardPage() {
                         <img src={podcast.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
-                          🎙️
+                          ðŸŽ™ï¸
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                          <span className="text-sm font-bold">▶</span>
+                          <span className="text-sm font-bold">â–¶</span>
                         </div>
                       </div>
                     </div>
@@ -1533,10 +1552,10 @@ export default function MainDashboardPage() {
           
           // ================== USER SAVED ARTISTS VIEW ==================
           <div className="flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">👥 Followed Artists</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ‘¥ Followed Artists</h2>
             {savedArtists.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
-                <span className="text-2xl">👥</span>
+                <span className="text-2xl">ðŸ‘¥</span>
                 <p className="text-xs text-zinc-500">You aren't following any artists yet. Explore Popular Artists and click "Follow Artist"!</p>
               </div>
             ) : (
@@ -1553,7 +1572,7 @@ export default function MainDashboardPage() {
                       )}
                       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
                         <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                          <span className="text-sm font-bold">▶</span>
+                          <span className="text-sm font-bold">â–¶</span>
                         </div>
                       </div>
                     </div>
@@ -1570,14 +1589,14 @@ export default function MainDashboardPage() {
           
           // ================== LIBRARY VIEWS (LIKED SONGS OR PLAYLISTS) ==================
           <div className="flex flex-col gap-4 animate-fade-in">
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               {activeMenu === 'liked_songs' ? "My Favorite Tracks" : "Playlist Collection"}
             </h2>
             {libraryLoading ? (
-              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ ACCESSING SUPABASE RECORDS...</div>
+              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ ACCESSING SUPABASE RECORDS...</div>
             ) : librarySongs.length === 0 ? (
               <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
-                <span className="text-2xl">💚</span>
+                <span className="text-2xl">ðŸ’š</span>
                 <p className="text-xs text-zinc-500">Your library is currently empty. Go ahead and search for online tracks and hit Like or add them to your playlists!</p>
               </div>
             ) : (
@@ -1592,12 +1611,12 @@ export default function MainDashboardPage() {
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
                         <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
-                          {isCurrentTrack && isPlaying ? '🔊' : idx + 1}
+                          {isCurrentTrack && isPlaying ? 'ðŸ”Š' : idx + 1}
                         </span>
                         <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
                         <div className="flex flex-col min-w-0">
                           <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                          <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
+                          <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ {song.album}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -1615,7 +1634,7 @@ export default function MainDashboardPage() {
                             className={`text-xs p-1 hover:scale-115 transition ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
                             title="Favorite"
                           >
-                            💚
+                            ðŸ’š
                           </button>
                         </div>
                       </div>
@@ -1630,13 +1649,13 @@ export default function MainDashboardPage() {
           // ================== DEFAULT SAAVN HOME RECOMMENDATIONS ==================
           <div className="flex flex-col gap-10 animate-float-in">
             {saavnHomeLoading ? (
-              <div className="p-16 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING RECOMMENDATION MODULES...</div>
+              <div className="p-16 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING RECOMMENDATION MODULES...</div>
             ) : (
               <>
                 {/* 1. TRENDING NOW ROW */}
                 <div className="flex flex-col gap-4">
                   <div className="flex justify-between items-center">
-                    <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🔥 Trending Now</h2>
+                    <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ”¥ Trending Now</h2>
                   </div>
                   <div className="flex overflow-x-auto gap-5 pb-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                     {saavnHome.new_trending.map((item, index) => (
@@ -1671,11 +1690,11 @@ export default function MainDashboardPage() {
                           )}
                           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                              <span className="text-sm font-bold">▶</span>
+                              <span className="text-sm font-bold">â–¶</span>
                             </div>
                           </div>
                           <div className="absolute bottom-2.5 left-2.5 bg-black/80 border border-zinc-800/80 text-[8px] font-bold font-mono px-2 py-0.5 rounded-full text-emerald-400 opacity-90">
-                            {item.type === 'song' ? '🎵 Track' : '💽 Album'}
+                            {item.type === 'song' ? 'ðŸŽµ Track' : 'ðŸ’½ Album'}
                           </div>
                         </div>
                         <div className="flex flex-col px-1">
@@ -1690,12 +1709,12 @@ export default function MainDashboardPage() {
                 {/* 1.5 YOUTUBE MUSIC TRENDING ROW */}
                 {ytTrendingLoading ? (
                   <div className="flex flex-col gap-4">
-                    <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎥 YouTube Music Trending</h2>
-                    <div className="p-8 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ LOADING YT MUSIC HITS...</div>
+                    <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸŽ¥ YouTube Music Trending</h2>
+                    <div className="p-8 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ LOADING YT MUSIC HITS...</div>
                   </div>
                 ) : ytTrending.length > 0 && (
                   <div className="flex flex-col gap-4">
-                    <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🎥 YouTube Music Trending</h2>
+                    <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸŽ¥ YouTube Music Trending</h2>
                     <div className="flex overflow-x-auto gap-5 pb-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                       {ytTrending.map((song, index) => (
                         <div 
@@ -1708,16 +1727,16 @@ export default function MainDashboardPage() {
                               <img src={song.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
-                                🎥
+                                ðŸŽ¥
                               </div>
                             )}
                             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                                <span className="text-sm font-bold">▶</span>
+                                <span className="text-sm font-bold">â–¶</span>
                               </div>
                             </div>
                             <div className="absolute bottom-2.5 left-2.5 bg-black/80 border border-zinc-800/80 text-[8px] font-bold font-mono px-2 py-0.5 rounded-full text-[#fa2d48] opacity-90">
-                              🎥 YouTube
+                              ðŸŽ¥ YouTube
                             </div>
                           </div>
                           <div className="flex flex-col px-1">
@@ -1732,7 +1751,7 @@ export default function MainDashboardPage() {
 
                 {/* 2. NEW ALBUMS ROW */}
                 <div className="flex flex-col gap-4">
-                  <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">🆕 New Releases</h2>
+                  <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ†• New Releases</h2>
                   <div className="flex overflow-x-auto gap-5 pb-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                     {saavnHome.new_albums.map((item, index) => (
                       <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="w-36 md:w-40 flex flex-col gap-2 group cursor-pointer shrink-0">
@@ -1746,7 +1765,7 @@ export default function MainDashboardPage() {
                           )}
                           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                              <span className="text-sm font-bold">▶</span>
+                              <span className="text-sm font-bold">â–¶</span>
                             </div>
                           </div>
                         </div>
@@ -1761,7 +1780,7 @@ export default function MainDashboardPage() {
 
                 {/* 3. TOP PLAYLISTS ROW */}
                 <div className="flex flex-col gap-4">
-                  <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📁 Featured Playlists</h2>
+                  <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ“ Featured Playlists</h2>
                   <div className="flex overflow-x-auto gap-5 pb-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                     {saavnHome.top_playlists.map((item, index) => (
                       <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="w-36 md:w-40 flex flex-col gap-2 group cursor-pointer shrink-0">
@@ -1775,7 +1794,7 @@ export default function MainDashboardPage() {
                           )}
                           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                              <span className="text-sm font-bold">▶</span>
+                              <span className="text-sm font-bold">â–¶</span>
                             </div>
                           </div>
                         </div>
@@ -1790,7 +1809,7 @@ export default function MainDashboardPage() {
 
                 {/* 4. CHARTS ROW */}
                 <div className="flex flex-col gap-4">
-                  <h2 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono text-zinc-300">📈 Top Charts</h2>
+                  <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ðŸ“ˆ Top Charts</h2>
                   <div className="flex overflow-x-auto gap-5 pb-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                     {saavnHome.charts.map((item, index) => (
                       <div key={`${item.id}-${index}`} onClick={() => fetchItemDetails(item)} className="w-36 md:w-40 flex flex-col gap-2 group cursor-pointer shrink-0">
@@ -1804,7 +1823,7 @@ export default function MainDashboardPage() {
                           )}
                           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform transition hover:scale-105 active:scale-95">
-                              <span className="text-sm font-bold">▶</span>
+                              <span className="text-sm font-bold">â–¶</span>
                             </div>
                           </div>
                         </div>
@@ -1825,3 +1844,5 @@ export default function MainDashboardPage() {
     </div>
   )
 }
+
+
