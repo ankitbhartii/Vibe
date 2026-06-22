@@ -202,6 +202,13 @@ export default function GlobalPlayer() {
   const [dragQueueDeltaY, setDragQueueDeltaY] = useState(0)
   const queueSheetRef = useRef(null)
 
+  // Drag down player to minimize gesture state
+  const [playerTranslateY, setPlayerTranslateY] = useState(0)
+  const [isDraggingPlayer, setIsDraggingPlayer] = useState(false)
+  const [dragPlayerStartY, setDragPlayerStartY] = useState(0)
+  const dragStartYRef = useRef(null)
+  const dragDirectionRef = useRef(null)
+
   // Action panel states
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showCastMenu, setShowCastMenu] = useState(false)
@@ -375,9 +382,11 @@ export default function GlobalPlayer() {
     }, 330)
   }
 
-  const startDrag = (clientX) => {
+  const startDrag = (clientX, clientY) => {
     if (animating) return
     dragStartXRef.current = clientX
+    dragStartYRef.current = clientY
+    dragDirectionRef.current = null
     dragDeltaXRef.current = 0
     isDraggingRef.current = true
     lastXRef.current      = clientX
@@ -386,41 +395,78 @@ export default function GlobalPlayer() {
     setStripTransition('none')
   }
 
-  const moveDrag = (clientX) => {
+  const moveDrag = (clientX, clientY) => {
     if (!isDraggingRef.current || animating) return
-    const now     = performance.now()
-    const dt      = now - lastTimeRef.current
-    if (dt > 0) velocityRef.current = (clientX - lastXRef.current) / dt  // px/ms
-    lastXRef.current    = clientX
-    lastTimeRef.current = now
-    const delta = clientX - dragStartXRef.current
-    dragDeltaXRef.current = delta
-    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
-    rafIdRef.current = requestAnimationFrame(() => setStripOffset(delta))
+    
+    if (dragDirectionRef.current === null) {
+      const dx = clientX - dragStartXRef.current
+      const dy = clientY - dragStartYRef.current
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          dragDirectionRef.current = 'horizontal'
+        } else {
+          dragDirectionRef.current = 'vertical'
+        }
+      }
+      return
+    }
+
+    if (dragDirectionRef.current === 'horizontal') {
+      const now     = performance.now()
+      const dt      = now - lastTimeRef.current
+      if (dt > 0) velocityRef.current = (clientX - lastXRef.current) / dt  // px/ms
+      lastXRef.current    = clientX
+      lastTimeRef.current = now
+      const delta = clientX - dragStartXRef.current
+      dragDeltaXRef.current = delta
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = requestAnimationFrame(() => setStripOffset(delta))
+    } else if (dragDirectionRef.current === 'vertical') {
+      if (queueExpanded) return
+      const dy = clientY - dragStartYRef.current
+      setPlayerTranslateY(Math.max(0, dy))
+    }
   }
 
   const endDrag = () => {
     if (!isDraggingRef.current) return
     isDraggingRef.current = false
-    if (rafIdRef.current) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null }
-    const delta    = dragDeltaXRef.current
-    const velocity = velocityRef.current   // px/ms, positive = dragged right
-    const DIST_THRESHOLD = 50             // px
-    const VEL_THRESHOLD  = 0.3            // px/ms (flick speed)
-    const goNext = delta < -DIST_THRESHOLD || velocity < -VEL_THRESHOLD
-    const goPrev = delta >  DIST_THRESHOLD || velocity >  VEL_THRESHOLD
-    if (goNext)       triggerNextWithAnimation()
-    else if (goPrev)  triggerPrevWithAnimation()
-    else              snapToCenter()
+    
+    const direction = dragDirectionRef.current
+    dragDirectionRef.current = null
+    
+    if (direction === 'horizontal') {
+      if (rafIdRef.current) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null }
+      const delta    = dragDeltaXRef.current
+      const velocity = velocityRef.current   // px/ms, positive = dragged right
+      const DIST_THRESHOLD = 50             // px
+      const VEL_THRESHOLD  = 0.3            // px/ms (flick speed)
+      const goNext = delta < -DIST_THRESHOLD || velocity < -VEL_THRESHOLD
+      const goPrev = delta >  DIST_THRESHOLD || velocity >  VEL_THRESHOLD
+      if (goNext)       triggerNextWithAnimation()
+      else if (goPrev)  triggerPrevWithAnimation()
+      else              snapToCenter()
+    } else if (direction === 'vertical') {
+      if (playerTranslateY > 120) {
+        setIsExpanded(false)
+        setActiveOverlayTab('')
+        setQueueExpanded(false)
+      }
+      setPlayerTranslateY(0)
+    }
+    
     dragStartXRef.current = null
-    dragDeltaXRef.current = 0
+    dragStartYRef.current = null
   }
 
-  const handleTouchStart = (e) => startDrag(e.touches[0].clientX)
-  const handleTouchMove  = (e) => { e.preventDefault(); moveDrag(e.touches[0].clientX) }
+  const handleTouchStart = (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY)
+  const handleTouchMove  = (e) => {
+    if (dragDirectionRef.current === 'horizontal') e.preventDefault()
+    moveDrag(e.touches[0].clientX, e.touches[0].clientY)
+  }
   const handleTouchEnd   = ()  => endDrag()
-  const handleMouseDown  = (e) => { e.preventDefault(); startDrag(e.clientX) }
-  const handleMouseMove  = (e) => moveDrag(e.clientX)
+  const handleMouseDown  = (e) => { e.preventDefault(); startDrag(e.clientX, e.clientY) }
+  const handleMouseMove  = (e) => moveDrag(e.clientX, e.clientY)
   const handleMouseUp    = ()  => endDrag()
 
   const prevSong = getPrevSong()
@@ -623,6 +669,13 @@ export default function GlobalPlayer() {
     if (Math.abs(dragQueueDeltaY) < 5) {
       setQueueExpanded(!queueExpanded)
     }
+  }
+
+  // Swipe down player to minimize gesture handlers
+  const startPlayerDrag = (clientY) => {
+    if (queueExpanded) return
+    setDragPlayerStartY(clientY)
+    setIsDraggingPlayer(true)
   }
 
   // Per-line refs map for accurate scroll targeting
@@ -1431,7 +1484,14 @@ export default function GlobalPlayer() {
 
       {/* 2. EXPANDED APPLE MUSIC FULL-SCREEN PLAYER */}
       {isExpanded && (
-        <div className="fixed inset-0 z-[100] flex flex-col justify-between p-5 select-none text-white overflow-hidden animate-expand-player" style={{ background: '#000' }}>
+        <div 
+          className="fixed inset-0 z-[100] flex flex-col justify-between select-none text-white overflow-hidden animate-expand-player" 
+          style={{ 
+            background: '#000',
+            transform: `translateY(${playerTranslateY}px)`,
+            transition: (isDraggingPlayer || dragDirectionRef.current === 'vertical') ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+          }}
+        >
           {/* Dynamic Blurred Adaptive Backdrop — Apple Music style */}
           <div 
             className="absolute inset-0 bg-cover bg-center -z-10 scale-125 gpu-accel"
@@ -1444,7 +1504,48 @@ export default function GlobalPlayer() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/90 -z-10" />
 
           {/* HEADER ROW */}
-          <div className="flex justify-between items-center w-full max-w-md mx-auto pb-3">
+          <div 
+            onMouseDown={(e) => {
+              if (e.button !== 0) return
+              startPlayerDrag(e.clientY)
+              const onMouseMove = (ev) => {
+                const dy = ev.clientY - e.clientY
+                setPlayerTranslateY(Math.max(0, dy))
+              }
+              const onMouseUp = (ev) => {
+                window.removeEventListener('mousemove', onMouseMove)
+                window.removeEventListener('mouseup', onMouseUp)
+                setIsDraggingPlayer(false)
+                const finalY = ev.clientY - e.clientY
+                if (finalY > 120) {
+                  setIsExpanded(false)
+                  setActiveOverlayTab('')
+                  setQueueExpanded(false)
+                }
+                setPlayerTranslateY(0)
+              }
+              window.addEventListener('mousemove', onMouseMove)
+              window.addEventListener('mouseup', onMouseUp)
+            }}
+            onTouchStart={(e) => {
+              startPlayerDrag(e.touches[0].clientY)
+            }}
+            onTouchMove={(e) => {
+              if (!isDraggingPlayer) return
+              const dy = e.touches[0].clientY - dragPlayerStartY
+              setPlayerTranslateY(Math.max(0, dy))
+            }}
+            onTouchEnd={() => {
+              setIsDraggingPlayer(false)
+              if (playerTranslateY > 120) {
+                setIsExpanded(false)
+                setActiveOverlayTab('')
+                setQueueExpanded(false)
+              }
+              setPlayerTranslateY(0)
+            }}
+            className="flex justify-between items-center w-full max-w-md mx-auto pt-5 px-5 pb-3 cursor-row-resize select-none"
+          >
             <button 
               onClick={() => { setIsExpanded(false); setActiveOverlayTab(''); setQueueExpanded(false); }}
               className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center apple-press"
@@ -1463,7 +1564,7 @@ export default function GlobalPlayer() {
           </div>
 
           {/* MAIN PLAYER AREA (Album Cover / Lyrics / X-Ray) */}
-          <div className="flex-1 flex flex-col items-center justify-center my-4 w-full max-w-md mx-auto relative min-h-[300px]">
+          <div className="flex-1 flex flex-col items-center justify-center my-4 w-full max-w-md mx-auto relative min-h-[300px] px-5">
             {activeOverlayTab === 'lyrics' ? (
               <div className="w-full h-full min-h-[300px] rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 relative" style={{ background: 'rgba(8,8,10,0.75)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 {/* Blurred album art background for lyrics panel */}
@@ -1559,7 +1660,7 @@ export default function GlobalPlayer() {
           </div>
 
           {/* PLAYER CONTROLS PANEL */}
-          <div className="w-full max-w-md mx-auto flex flex-col pb-6">
+          <div className="w-full max-w-md mx-auto flex flex-col pb-6 px-5">
             
             {/* TABS: Lyrics / X-Ray pills */}
             <div className="flex gap-2.5 justify-center mb-5">
