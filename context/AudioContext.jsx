@@ -1,6 +1,7 @@
 'use client'
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { logSearchQuery, scoreAndSortTracks } from '@/utils/recoEngine'
 
 const AudioContext = createContext()
 
@@ -38,6 +39,16 @@ export function AudioProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [autoplayEnabled, setAutoplayEnabled] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Dynamically record search terms into the preference profile for ranking affinity
+  useEffect(() => {
+    if (searchQuery && searchQuery.trim().length > 2) {
+      const timer = setTimeout(() => {
+        logSearchQuery(searchQuery)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchQuery])
 
   const [history, setHistory] = useState([])
   const [savedAlbums, setSavedAlbums] = useState([])
@@ -238,8 +249,9 @@ export function AudioProvider({ children }) {
         if (res.ok) {
           const { recommendations } = await res.json()
           if (Array.isArray(recommendations) && recommendations.length > 0) {
-            setCurrentSong(recommendations[0])
-            setQueue(recommendations.slice(1))
+            const ranked = scoreAndSortTracks(recommendations, currentSong)
+            setCurrentSong(ranked[0])
+            setQueue(ranked.slice(1))
             setIsPlaying(true)
             return
           }
@@ -257,8 +269,9 @@ export function AudioProvider({ children }) {
       if (res.ok) {
         const recs = await res.json()
         if (Array.isArray(recs) && recs.length > 0) {
-          const firstRec = recs[0]
-          setQueue(recs.slice(1))
+          const ranked = scoreAndSortTracks(recs, currentSong)
+          const firstRec = ranked[0]
+          setQueue(ranked.slice(1))
           setCurrentSong(firstRec)
           setIsPlaying(true)
         }

@@ -21,7 +21,7 @@ function parseDuration(durationStr) {
  * Fetches related/recommended videos for a given YouTube video ID.
  * Uses youtubei.js (Innertube) watch_next_feed directly.
  * 
- * Returns normalized track objects compatible with the YT IFrame player.
+ * Returns normalized track objects enriched with YouTube metadata (views, date).
  */
 export async function GET(request) {
   try {
@@ -49,7 +49,14 @@ export async function GET(request) {
     const recommendations = videoItems.slice(0, limit).map(item => {
       const rawId = item.content_id
       const title = item.metadata?.title?.text || 'Unknown Title'
-      const artist = item.metadata?.metadata?.metadata_rows?.[0]?.metadata_parts?.[0]?.text?.text || 'YouTube Music'
+      
+      const metaRows = item.metadata?.metadata?.metadata_rows || []
+      const artist = metaRows[0]?.metadata_parts?.[0]?.text?.text || 'YouTube Music'
+      
+      // Extract views and publish time ago from the second metadata row
+      const views = metaRows[1]?.metadata_parts?.[0]?.text?.text || null
+      const timeAgo = metaRows[1]?.metadata_parts?.[1]?.text?.text || null
+      
       const image = item.content_image?.image?.[0]?.url || item.content_image?.image?.[1]?.url || null
       const durationStr = item.content_image?.overlays?.[0]?.badges?.[0]?.text || ''
       const duration = parseDuration(durationStr)
@@ -63,6 +70,8 @@ export async function GET(request) {
         image_url: image,
         audio_url: `/api/ytmusic/play/${rawId}`,
         duration,
+        views,      // e.g. "4.4M"
+        timeAgo,    // e.g. "2y ago"
         source: 'ytmusic',
         is_favorite: false
       }

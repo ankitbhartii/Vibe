@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useAudio } from '@/context/AudioContext'
+import { updateProfileOnInteraction, scoreAndSortTracks, markAsDisliked } from '@/utils/recoEngine'
 
 export default function GlobalPlayer() {
   const { 
@@ -186,6 +187,7 @@ export default function GlobalPlayer() {
   // Expandable player states
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeOverlayTab, setActiveOverlayTab] = useState('') // '' | 'lyrics' | 'xray' | 'queue'
+  const [draggedIndex, setDraggedIndex] = useState(null)
   const [lyricsData, setLyricsData] = useState({ lyrics: '', syncedLyrics: '', copyright: '', lyricsProvider: '' })
   const [lyricsLoading, setLyricsLoading] = useState(false)
   const [parsedLyrics, setParsedLyrics] = useState([])
@@ -206,6 +208,76 @@ export default function GlobalPlayer() {
   const [showSpeedPicker, setShowSpeedPicker] = useState(false)
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false)
   const [shareToast, setShareToast] = useState('')
+
+  // Preference Profile Listening/Interaction Accumulators
+  const durationListenedRef = useRef(0)
+  const lastActiveSongRef = useRef(null)
+
+  // Accumulate wall-clock duration while isPlaying is active
+  useEffect(() => {
+    if (!isPlaying || !currentSong) return
+
+    let lastTime = Date.now()
+    const timer = setInterval(() => {
+      const now = Date.now()
+      const elapsed = (now - lastTime) / 1000
+      if (elapsed > 0 && elapsed < 3) {
+        durationListenedRef.current += elapsed
+      }
+      lastTime = now
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isPlaying, currentSong?.id])
+
+  // Record interaction on song change
+  useEffect(() => {
+    if (lastActiveSongRef.current) {
+      const prevSong = lastActiveSongRef.current
+      const prevDuration = duration
+      const listened = durationListenedRef.current
+      
+      console.log(`📡 RecoEngine: Recording interaction for "${prevSong.title}" - Listened: ${listened.toFixed(1)}s, Total: ${prevDuration}s`)
+      updateProfileOnInteraction(prevSong, listened, prevDuration)
+    }
+
+    lastActiveSongRef.current = currentSong
+    durationListenedRef.current = 0
+  }, [currentSong?.id])
+
+  // Record interaction on tab close/unload
+  useEffect(() => {
+    const handleUnload = () => {
+      if (lastActiveSongRef.current) {
+        updateProfileOnInteraction(lastActiveSongRef.current, durationListenedRef.current, duration)
+      }
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    return () => window.removeEventListener('beforeunload', handleUnload)
+  }, [duration])
+
+  // HTML5 Drag and Drop Handlers for Queue Reordering
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === index) return
+    
+    const newQueue = [...queue]
+    const draggedItem = newQueue[draggedIndex]
+    newQueue.splice(draggedIndex, 1)
+    newQueue.splice(index, 0, draggedItem)
+    
+    setDraggedIndex(index)
+    setQueue(newQueue)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+  }
 
   // Album cover carousel — 3-panel strip, native iOS swipe feel
   const dragStartXRef   = useRef(null)
@@ -453,7 +525,8 @@ export default function GlobalPlayer() {
           const res = await fetch(`/api/ytmusic/recommendations?videoId=${currentSong.rawId}&limit=20`)
           if (res.ok) {
             const { recommendations } = await res.json()
-            setRecommendedTracks(recommendations || [])
+            const ranked = scoreAndSortTracks(recommendations, currentSong)
+            setRecommendedTracks(ranked || [])
           } else {
             setRecommendedTracks([])
           }
@@ -466,7 +539,8 @@ export default function GlobalPlayer() {
         )
         if (res.ok) {
           const data = await res.json()
-          setRecommendedTracks(data)
+          const ranked = scoreAndSortTracks(data, currentSong)
+          setRecommendedTracks(ranked)
         } else {
           setRecommendedTracks([])
         }
@@ -936,7 +1010,6 @@ export default function GlobalPlayer() {
           <p><span className="text-zinc-500 font-medium">Song Title:</span> <strong className="text-white ml-1.5">{currentSong.title}</strong></p>
           <p><span className="text-zinc-500 font-medium">Primary Artist:</span> <strong className="text-white ml-1.5">{currentSong.artist}</strong></p>
           {currentSong.album && <p><span className="text-zinc-500 font-medium">Album name:</span> <strong className="text-white ml-1.5">{currentSong.album}</strong></p>}
-          {currentSong.year && <p><span className="text-zinc-500 font-medium">Release Year:</span> <strong className="text-white ml-1.5">{currentSong.year}</strong></p>}
           <p><span className="text-zinc-500 font-medium">Stream Bitrate:</span> <strong className="text-emerald-400 ml-1.5">Lossless 320kbps</strong></p>
           <p><span className="text-zinc-500 font-medium">Signal Format:</span> <strong className="text-emerald-400 ml-1.5">HD Audio / AAC</strong></p>
         </div>
@@ -945,66 +1018,98 @@ export default function GlobalPlayer() {
   }
 
   const renderQueue = () => {
+    const getSubText = (s) => {
+      const parts = [s.artist || 'Unknown Artist']
+      if (s.views) {
+        parts.push(s.views.includes('views') ? s.views : `${s.views} views`)
+      } else if (s.duration) {
+        parts.push(formatTime(s.duration))
+      }
+      return parts.join(' · ')
+    }
+
+    const formatTime = (secs) => {
+      if (isNaN(secs) || secs === null || secs === undefined) return '0:00'
+      const m = Math.floor(secs / 60)
+      const s = Math.floor(secs % 60)
+      return `${m}:${s < 10 ? '0' : ''}${s}`
+    }
+
     return (
-      <div className="h-full overflow-y-auto px-6 py-4 flex flex-col gap-5 text-left text-zinc-300 text-sm max-h-[280px] md:max-h-[340px] custom-scrollbar select-none">
+      <div className="h-full overflow-y-auto px-4 pb-6 flex flex-col gap-4 text-left text-zinc-300 text-sm max-h-[380px] md:max-h-[460px] custom-scrollbar select-none">
         
-        {/* NOW PLAYING SECTION */}
+        {/* NOW PLAYING SONG ROW (Highlight style matching YTM) */}
         <div>
-          <h3 className="text-xs font-bold font-mono text-[#fa2d48] uppercase tracking-widest mb-2.5">Now Playing</h3>
-          <div className="flex items-center gap-3 bg-zinc-900/40 border border-zinc-800/20 p-2.5 rounded-xl">
-            {currentSong.image_url ? (
-              <img src={currentSong.image_url} alt="" className="w-10 h-10 object-cover rounded-lg" />
-            ) : (
-              <div className="w-10 h-10 bg-zinc-900 rounded-lg flex items-center justify-center text-xs">🎵</div>
-            )}
+          <div className="flex items-center gap-3 bg-white/[0.04] border border-white/[0.02] p-2.5 rounded-xl">
+            {/* Thumbnail */}
+            <div className="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-zinc-900 shadow-md">
+              {currentSong.image_url ? (
+                <img src={currentSong.image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs">🎵</div>
+              )}
+            </div>
+            {/* Metadata */}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-white truncate">{currentSong.title}</p>
-              <p className="text-[10px] text-zinc-500 truncate mt-0.5">{currentSong.artist}</p>
+              <p className="text-[10px] text-zinc-400 truncate mt-0.5">{getSubText(currentSong)}</p>
             </div>
-            <span className="text-[9px] bg-[#fa2d48]/10 text-[#fa2d48] px-2 py-0.5 rounded font-mono font-bold">PLAYING</span>
+            {/* Playing Status Badge */}
+            <span className="text-[8px] bg-[#fa2d48]/10 text-[#fa2d48] border border-[#fa2d48]/20 px-2 py-0.5 rounded font-mono font-bold tracking-wider">
+              NOW PLAYING
+            </span>
           </div>
         </div>
 
         {/* UP NEXT QUEUE */}
-        <div>
-          <div className="flex justify-between items-center mb-2.5">
-            <h3 className="text-xs font-bold font-mono text-zinc-400 uppercase tracking-widest">Up Next</h3>
-            {queue.length > 0 && (
-              <button 
-                onClick={clearQueue} 
-                className="text-[10px] text-zinc-500 hover:text-red-400 font-mono transition-colors"
+        {queue.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            {queue.map((song, idx) => (
+              <div 
+                key={song.id + '-' + idx} 
+                draggable
+                onDragStart={(e) => handleDragStart(e, idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-3 p-2 rounded-xl group/qitem transition-colors hover:bg-white/[0.03] cursor-grab active:cursor-grabbing ${
+                  draggedIndex === idx ? 'bg-white/[0.08] opacity-55 border border-[#fa2d48]/35' : 'border border-transparent'
+                }`}
               >
-                CLEAR QUEUE
-              </button>
-            )}
-          </div>
-          {queue.length === 0 ? (
-            <p className="text-xs text-zinc-650 italic pl-1">No songs in queue. Add songs below or enable autoplay.</p>
-          ) : (
-            <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto custom-scrollbar">
-              {queue.map((song, idx) => (
-                <div key={song.id + '-' + idx} className="flex items-center gap-2.5 bg-zinc-900/25 border border-zinc-800/10 p-2 rounded-xl group/qitem">
-                  <span className="text-[10px] font-mono text-zinc-600 pl-1 w-4">{idx + 1}</span>
-                  {song.image_url && <img src={song.image_url} alt="" className="w-8 h-8 object-cover rounded-md" />}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-zinc-200 truncate group-hover/qitem:text-white transition-colors">{song.title}</p>
-                    <p className="text-[10px] text-zinc-500 truncate">{song.artist}</p>
-                  </div>
+                {/* Thumbnail */}
+                <div className="relative shrink-0 w-9 h-9 rounded-lg overflow-hidden bg-zinc-900 shadow-sm">
+                  {song.image_url ? (
+                    <img src={song.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs">🎵</div>
+                  )}
+                </div>
+                {/* Metadata */}
+                <div className="flex-1 min-w-0" onClick={() => playTrack(song, playlist)}>
+                  <p className="text-xs font-medium text-zinc-200 truncate group-hover/qitem:text-white transition-colors">{song.title}</p>
+                  <p className="text-[10px] text-zinc-400 truncate mt-0.5">{getSubText(song)}</p>
+                </div>
+                {/* Actions (Delete icon on hover, drag reorder icon) */}
+                <div className="flex items-center gap-2.5 shrink-0">
                   <button 
                     onClick={() => removeFromQueue(song.id)}
-                    className="text-zinc-600 hover:text-red-400 p-1 font-bold text-xs"
+                    className="opacity-0 group-hover/qitem:opacity-100 text-zinc-500 hover:text-red-400 p-1 transition-opacity text-xs"
                     title="Remove from queue"
                   >
                     ✕
                   </button>
+                  {/* Reorder equals sign handle icon */}
+                  <svg className="text-zinc-500 hover:text-zinc-300 w-4 h-4 cursor-row-resize" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="9" x2="20" y2="9" />
+                    <line x1="4" y1="15" x2="20" y2="15" />
+                  </svg>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* AUTOPLAY TOGGLE ROW */}
-        <div className="flex justify-between items-center border-t border-zinc-900/60 pt-3">
+        <div className="flex justify-between items-center border-t border-white/5 pt-3">
           <div className="flex flex-col">
             <span className="text-xs font-bold text-zinc-200">Autoplay Similar Songs</span>
             <span className="text-[9px] text-zinc-500 font-mono mt-0.5">Appends recommended hits when list ends</span>
@@ -1017,13 +1122,13 @@ export default function GlobalPlayer() {
           </button>
         </div>
 
-        {/* RECOMMENDED SONGS LIST */}
-        <div className="border-t border-zinc-900/60 pt-3">
+        {/* RECOMMENDED / SIMILAR SONGS LIST (ML SCORING ENGINE SORTED) */}
+        <div className="border-t border-white/5 pt-3">
           {/* Header — YouTube-branded for YT songs, plain for JioSaavn */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 px-1">
             {isYTSong ? (
               <>
-                <span className="text-base leading-none">▶</span>
+                <span className="text-base leading-none" style={{ color: '#ff4444' }}>▶</span>
                 <h3 className="text-xs font-bold font-mono uppercase tracking-widest" style={{ color: '#ff4444' }}>
                   YouTube Up Next
                 </h3>
@@ -1051,7 +1156,7 @@ export default function GlobalPlayer() {
           ) : recommendedTracks.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-4">
               <span className="text-xl">{isYTSong ? '📺' : '🎵'}</span>
-              <p className="text-xs text-zinc-600 italic text-center">
+              <p className="text-xs text-zinc-650 italic text-center">
                 {isYTSong ? 'No related YouTube videos found.' : 'No recommendations found.'}
               </p>
             </div>
@@ -1060,7 +1165,7 @@ export default function GlobalPlayer() {
               {recommendedTracks.map((song) => (
                 <div
                   key={song.id}
-                  className="flex items-center gap-2.5 hover:bg-zinc-900/40 border border-transparent hover:border-zinc-800/30 p-2 rounded-xl group/recitem transition-all cursor-pointer"
+                  className="flex items-center gap-3 hover:bg-white/[0.02] border border-transparent p-2 rounded-xl group/recitem transition-all cursor-pointer"
                   onClick={() => playTrack(song, recommendedTracks)}
                 >
                   {/* Thumbnail */}
@@ -1085,21 +1190,33 @@ export default function GlobalPlayer() {
                     <p className="text-xs font-semibold text-zinc-300 group-hover/recitem:text-white truncate transition-colors leading-tight">
                       {song.title}
                     </p>
-                    <p className="text-[10px] text-zinc-500 truncate mt-0.5 leading-tight">
-                      {song.artist}
-                      {song.duration > 0 && ` · ${formatTime(song.duration)}`}
+                    <p className="text-[10px] text-zinc-550 truncate mt-0.5 leading-tight">
+                      {getSubText(song)}
                     </p>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover/recitem:opacity-100 transition-opacity shrink-0">
+                  {/* Actions (reorder drag icon that adds to queue, or +Q button) */}
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); addToQueue(song) }}
-                      className="text-[9px] bg-zinc-800 hover:bg-[#fa2d48] hover:text-black text-zinc-300 px-1.5 py-0.5 rounded font-mono font-bold transition"
+                      className="text-[9px] bg-zinc-800 hover:bg-[#fa2d48] hover:text-black text-zinc-300 px-1.5 py-0.5 rounded font-mono font-bold transition opacity-0 group-hover/recitem:opacity-100"
                       title="Add to queue"
                     >
                       +Q
                     </button>
+                    {/* Reorder drag handle (drag adds it to queue) */}
+                    <svg 
+                      onClick={(e) => { e.stopPropagation(); addToQueue(song) }}
+                      className="text-zinc-650 hover:text-zinc-300 w-4 h-4 cursor-pointer" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor" 
+                      strokeWidth="2"
+                      title="Add to queue"
+                    >
+                      <line x1="4" y1="9" x2="20" y2="9" />
+                      <line x1="4" y1="15" x2="20" y2="15" />
+                    </svg>
                   </div>
                 </div>
               ))}
@@ -1295,10 +1412,27 @@ export default function GlobalPlayer() {
                 {renderXRay()}
               </div>
             ) : activeOverlayTab === 'queue' ? (
-              <div className="w-full h-full min-h-[300px] bg-zinc-950/60 border border-zinc-800/40 rounded-3xl backdrop-blur-md flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300">
-                <div className="p-4 border-b border-zinc-900 flex justify-between items-center shrink-0">
-                  <span className="text-[10px] font-bold font-mono tracking-wider text-[#ff4466] uppercase">🎵 Playback Queue</span>
-                  <button onClick={() => setActiveOverlayTab('')} className="text-zinc-500 hover:text-white text-xs px-1">✕ Close</button>
+              <div className="w-full h-full min-h-[350px] md:min-h-[420px] bg-[#121214]/95 border border-white/5 rounded-3xl flex flex-col justify-between overflow-hidden shadow-[0_-8px_32px_rgba(0,0,0,0.5)] transition-all duration-300">
+                {/* Header matching YTM style */}
+                <div className="p-4 flex flex-col shrink-0">
+                  {/* Drag bar indicator */}
+                  <div 
+                    onClick={() => setActiveOverlayTab('')}
+                    className="w-12 h-1 bg-zinc-700/80 hover:bg-zinc-650 rounded-full mx-auto mb-3 cursor-pointer transition-colors"
+                  />
+                  <div className="flex justify-between items-end px-2">
+                    <div>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-none">Playing from</p>
+                      <h2 className="text-base md:text-lg font-bold text-white mt-1 leading-none">Your Queue</h2>
+                    </div>
+                    <button 
+                      onClick={() => alert("Save queue feature coming soon!")}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-full border border-white/5 transition flex items-center gap-1.5"
+                    >
+                      <svg role="img" height="12" width="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                      Save
+                    </button>
+                  </div>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   {renderQueue()}
