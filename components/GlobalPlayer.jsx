@@ -175,18 +175,21 @@ export default function GlobalPlayer() {
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false)
   const [shareToast, setShareToast] = useState('')
 
-  // Album cover slider/swipe carousel states
-  const [touchStartX, setTouchStartX] = useState(null)
-  const [mouseStartX, setMouseStartX] = useState(null)
-  const [touchDeltaX, setTouchDeltaX] = useState(0)
+  // Album cover carousel — ALL drag tracking in refs, zero React re-renders during drag
+  const dragStartXRef    = useRef(null)  // pointer start X
+  const dragDeltaXRef    = useRef(0)     // current live delta
+  const isDraggingRef    = useRef(false) // are we mid-drag?
+  const rafIdRef         = useRef(null)  // rAF loop for DOM updates
+  const carouselRef      = useRef(null)  // outer container
+  const coverLeftRef     = useRef(null)  // prev song cover
+  const coverCenterRef   = useRef(null)  // current song cover
+  const coverRightRef    = useRef(null)  // next song cover
   const [animating, setAnimating] = useState(false)
   const [displaySong, setDisplaySong] = useState(currentSong)
 
   // Keep displaySong updated with currentSong
   useEffect(() => {
-    if (!animating) {
-      setDisplaySong(currentSong)
-    }
+    if (!animating) setDisplaySong(currentSong)
   }, [currentSong, animating])
 
   const getPrevSong = () => {
@@ -197,131 +200,132 @@ export default function GlobalPlayer() {
   }
 
   const getNextSong = () => {
-    if (queue && queue.length > 0) {
-      return queue[0]
-    }
+    if (queue && queue.length > 0) return queue[0]
     if (!playlist || playlist.length === 0 || !currentSong) return null
     const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
     if (idx === -1) return null
-    const isEnd = idx === playlist.length - 1
-    return isEnd ? playlist[0] : playlist[idx + 1]
+    return idx === playlist.length - 1 ? playlist[0] : playlist[idx + 1]
   }
 
+  /** Apply styles directly to DOM — called in rAF, never triggers React render */
+  const applyCarouselStyles = (delta) => {
+    const absDelta = Math.abs(delta)
+    const scaleCenter = 1 - absDelta / 1400
+    const opCenter    = 1 - absDelta / 900
+
+    if (coverCenterRef.current) {
+      coverCenterRef.current.style.transform = `translateX(calc(-50% + ${delta}px)) scale(${scaleCenter})`
+      coverCenterRef.current.style.opacity   = String(Math.max(0.3, opCenter))
+    }
+    if (coverLeftRef.current) {
+      const scaleL = 0.75 + (delta > 0 ? delta / 1200 : 0)
+      const opL    = 0.3  + (delta > 0 ? delta / 400  : 0)
+      coverLeftRef.current.style.transform  = `translateX(calc(-50% - 190px + ${delta}px)) scale(${Math.min(1, scaleL)})`
+      coverLeftRef.current.style.opacity    = String(Math.min(1, Math.max(0.1, opL)))
+    }
+    if (coverRightRef.current) {
+      const scaleR = 0.75 + (delta < 0 ? -delta / 1200 : 0)
+      const opR    = 0.3  + (delta < 0 ? -delta / 400  : 0)
+      coverRightRef.current.style.transform = `translateX(calc(-50% + 190px + ${delta}px)) scale(${Math.min(1, scaleR)})`
+      coverRightRef.current.style.opacity   = String(Math.min(1, Math.max(0.1, opR)))
+    }
+  }
+
+  /** Enable CSS transition on cover divs (for snap animation) */
+  const setCoversTransition = (val) => {
+    const t = val || 'none'
+    if (coverCenterRef.current) coverCenterRef.current.style.transition = t
+    if (coverLeftRef.current)   coverLeftRef.current.style.transition   = t
+    if (coverRightRef.current)  coverRightRef.current.style.transition  = t
+  }
+
+  /** Snap back to center (no song change) */
+  const snapToCenter = () => {
+    setCoversTransition('transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 280ms ease-out')
+    applyCarouselStyles(0)
+    setTimeout(() => setCoversTransition('none'), 300)
+  }
+
+  /** Animate slide to next/prev and trigger navigation */
   const triggerNextWithAnimation = () => {
     if (animating) return
     const nextSong = getNextSong()
-    if (!nextSong) {
-      setTouchDeltaX(0)
-      return
-    }
+    if (!nextSong) { snapToCenter(); return }
     setAnimating(true)
-    setTouchDeltaX(-220)
+    setCoversTransition('transform 260ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 260ms ease-out')
+    applyCarouselStyles(-240)
     setTimeout(() => {
       handleNext()
       setDisplaySong(nextSong)
-      setTouchDeltaX(0)
+      setCoversTransition('none')
+      applyCarouselStyles(0)
       setAnimating(false)
-    }, 300)
+    }, 270)
   }
 
   const triggerPrevWithAnimation = () => {
     if (animating) return
     const prevSong = getPrevSong()
-    if (!prevSong) {
-      setTouchDeltaX(0)
-      return
-    }
+    if (!prevSong) { snapToCenter(); return }
     setAnimating(true)
-    setTouchDeltaX(220)
+    setCoversTransition('transform 260ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 260ms ease-out')
+    applyCarouselStyles(240)
     setTimeout(() => {
       handlePrev()
       setDisplaySong(prevSong)
-      setTouchDeltaX(0)
+      setCoversTransition('none')
+      applyCarouselStyles(0)
       setAnimating(false)
-    }, 300)
+    }, 270)
   }
 
-  const handleTouchStart = (e) => {
+  /** Start drag — store start position, disable transitions */
+  const startDrag = (clientX) => {
     if (animating) return
-    setTouchStartX(e.touches[0].clientX)
-    setTouchDeltaX(0)
+    dragStartXRef.current  = clientX
+    dragDeltaXRef.current  = 0
+    isDraggingRef.current  = true
+    setCoversTransition('none')
   }
 
-  const handleTouchMove = (e) => {
-    if (touchStartX === null || animating) return
-    const currentX = e.touches[0].clientX
-    const deltaX = currentX - touchStartX
-    setTouchDeltaX(Math.max(-240, Math.min(240, deltaX)))
+  /** Move drag — rAF loop keeps DOM in sync without React renders */
+  const moveDrag = (clientX) => {
+    if (!isDraggingRef.current || animating) return
+    const raw   = clientX - dragStartXRef.current
+    const delta = Math.max(-260, Math.min(260, raw))
+    dragDeltaXRef.current = delta
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
+    rafIdRef.current = requestAnimationFrame(() => applyCarouselStyles(delta))
   }
 
-  const handleTouchEnd = () => {
-    if (touchStartX === null || animating) return
+  /** End drag — decide: navigate or snap back */
+  const endDrag = () => {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
+    if (rafIdRef.current) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null }
+    const delta     = dragDeltaXRef.current
     const threshold = 60
-    if (touchDeltaX > threshold) {
+    if (delta > threshold) {
       triggerPrevWithAnimation()
-    } else if (touchDeltaX < -threshold) {
+    } else if (delta < -threshold) {
       triggerNextWithAnimation()
     } else {
-      setAnimating(true)
-      setTouchDeltaX(0)
-      setTimeout(() => setAnimating(false), 300)
+      snapToCenter()
     }
-    setTouchStartX(null)
+    dragStartXRef.current = null
+    dragDeltaXRef.current = 0
   }
 
-  const handleMouseDown = (e) => {
-    if (animating) return
-    setMouseStartX(e.clientX)
-    setTouchDeltaX(0)
-  }
-
-  const handleMouseMove = (e) => {
-    if (mouseStartX === null || animating) return
-    const deltaX = e.clientX - mouseStartX
-    setTouchDeltaX(Math.max(-240, Math.min(240, deltaX)))
-  }
-
-  const handleMouseUp = () => {
-    if (mouseStartX === null || animating) return
-    const threshold = 60
-    if (touchDeltaX > threshold) {
-      triggerPrevWithAnimation()
-    } else if (touchDeltaX < -threshold) {
-      triggerNextWithAnimation()
-    } else {
-      setAnimating(true)
-      setTouchDeltaX(0)
-      setTimeout(() => setAnimating(false), 300)
-    }
-    setMouseStartX(null)
-  }
+  const handleTouchStart = (e) => startDrag(e.touches[0].clientX)
+  const handleTouchMove  = (e) => { e.preventDefault(); moveDrag(e.touches[0].clientX) }
+  const handleTouchEnd   = ()  => endDrag()
+  const handleMouseDown  = (e) => { e.preventDefault(); startDrag(e.clientX) }
+  const handleMouseMove  = (e) => moveDrag(e.clientX)
+  const handleMouseUp    = ()  => endDrag()
 
   const prevSong = getPrevSong()
   const nextSong = getNextSong()
 
-  const centerStyle = {
-    position: 'absolute',
-    left: '50%',
-    transform: `translateX(calc(-50% + ${touchDeltaX}px)) scale(${1 - Math.abs(touchDeltaX) / 1000})`,
-    opacity: 1 - Math.abs(touchDeltaX) / 1000,
-    transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
-  }
-
-  const leftStyle = {
-    position: 'absolute',
-    left: '50%',
-    transform: `translateX(calc(-50% - 190px + ${touchDeltaX}px)) scale(${0.75 + (touchDeltaX > 0 ? touchDeltaX / 1000 : 0)})`,
-    opacity: 0.3 + (touchDeltaX > 0 ? touchDeltaX / 400 : 0),
-    transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
-  }
-
-  const rightStyle = {
-    position: 'absolute',
-    left: '50%',
-    transform: `translateX(calc(-50% + 190px + ${touchDeltaX}px)) scale(${0.75 + (touchDeltaX < 0 ? -touchDeltaX / 1000 : 0)})`,
-    opacity: 0.3 + (touchDeltaX < 0 ? -touchDeltaX / 400 : 0),
-    transition: animating || (touchStartX === null && mouseStartX === null) ? 'all 300ms ease-out' : 'none'
-  }
 
   // ── Lyrics Fetching: parallel race between LRCLIB (fast CDN) and JioSaavn server ──
   useEffect(() => {
@@ -1202,6 +1206,7 @@ export default function GlobalPlayer() {
             ) : (
               /* Swiper/Slider Carousel for Album Covers */
               <div 
+                ref={carouselRef}
                 className="w-full overflow-hidden relative flex items-center justify-center h-72 sm:h-80 select-none cursor-grab active:cursor-grabbing"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
@@ -1210,25 +1215,40 @@ export default function GlobalPlayer() {
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
+                style={{ touchAction: 'pan-y' }}
               >
                 {/* Previous cover (Left) */}
                 {prevSong && (
                   <div 
+                    ref={coverLeftRef}
                     onClick={(e) => { e.stopPropagation(); triggerPrevWithAnimation(); }}
                     className="absolute w-44 h-44 sm:w-48 sm:h-48 rounded-2xl overflow-hidden z-0 cursor-pointer select-none"
-                    style={leftStyle}
+                    style={{
+                      position: 'absolute',
+                      left: '50%',
+                      transform: 'translateX(calc(-50% - 190px)) scale(0.75)',
+                      opacity: 0.3,
+                      willChange: 'transform, opacity',
+                    }}
                   >
-                    <img src={prevSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none animate-fade-in" />
+                    <img src={prevSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
                   </div>
                 )}
 
                 {/* Current cover (Center) */}
                 <div 
+                  ref={coverCenterRef}
                   className="w-56 h-56 sm:w-64 sm:h-64 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-zinc-800/40 z-10 select-none"
-                  style={centerStyle}
+                  style={{
+                    position: 'absolute',
+                    left: '50%',
+                    transform: 'translateX(-50%) scale(1)',
+                    opacity: 1,
+                    willChange: 'transform, opacity',
+                  }}
                 >
                   {displaySong.image_url ? (
-                    <img src={displaySong.image_url} alt="" className="w-full h-full object-cover pointer-events-none animate-fade-in" />
+                    <img src={displaySong.image_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center font-bold text-4xl text-zinc-600 pointer-events-none">🎵</div>
                   )}
@@ -1237,11 +1257,18 @@ export default function GlobalPlayer() {
                 {/* Next cover (Right) */}
                 {nextSong && (
                   <div 
+                    ref={coverRightRef}
                     onClick={(e) => { e.stopPropagation(); triggerNextWithAnimation(); }}
                     className="absolute w-44 h-44 sm:w-48 sm:h-48 rounded-2xl overflow-hidden z-0 cursor-pointer select-none"
-                    style={rightStyle}
+                    style={{
+                      position: 'absolute',
+                      left: '50%',
+                      transform: 'translateX(calc(-50% + 190px)) scale(0.75)',
+                      opacity: 0.3,
+                      willChange: 'transform, opacity',
+                    }}
                   >
-                    <img src={nextSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none animate-fade-in" />
+                    <img src={nextSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
                   </div>
                 )}
               </div>
