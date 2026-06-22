@@ -167,6 +167,25 @@ export default function GlobalPlayer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.rawId, isYTSong])
 
+  // Mutual exclusion: only ONE source plays at a time
+  // When switching to a YouTube song → pause HTML5 audio immediately
+  // When switching to a JioSaavn song → pause/stop YT player immediately
+  useEffect(() => {
+    if (isYTSong) {
+      // Stop HTML5 audio so it doesn't bleed into YT playback
+      const audio = audioRef?.current
+      if (audio) {
+        audio.pause()
+        audio.src = ''
+      }
+    } else {
+      // Stop YT player so it doesn't bleed into HTML5 playback
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.pauseVideo() } catch (_) {}
+      }
+    }
+  }, [isYTSong, audioRef])
+
   // Sync play/pause state with YT player
   useEffect(() => {
     const p = ytPlayerRef.current
@@ -783,45 +802,51 @@ export default function GlobalPlayer() {
     lineRefsMap.current = {}
   }, [currentSong?.id])
 
-  // Attach all audio event listeners once (not on song change — the audio element persists)
+  // Attach audio event listeners — retry until the audio element is ready
+  // (Audio() is created in a useEffect in AudioContext, so audioRef.current
+  // is null on the very first render. We poll every 100ms until it appears.)
   useEffect(() => {
-    const audio = audioRef?.current
-    if (!audio) return
+    let audio = audioRef?.current
+    let cleanup = null
 
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime || 0)
-    
-    const onDurationChange = () => {
+    const attach = () => {
+      audio = audioRef?.current
+      if (!audio) return false
+
+      const onTimeUpdate     = () => setCurrentTime(audio.currentTime || 0)
+      const onDurationChange = () => { const d = audio.duration; if (d && isFinite(d) && !isNaN(d) && d > 0) setDuration(d) }
+      const onLoadedMetadata = () => { const d = audio.duration; if (d && isFinite(d) && !isNaN(d) && d > 0) setDuration(d) }
+      const onLoadedData     = () => { const d = audio.duration; if (d && isFinite(d) && !isNaN(d) && d > 0) setDuration(d) }
+
+      audio.addEventListener('timeupdate',     onTimeUpdate)
+      audio.addEventListener('durationchange', onDurationChange)
+      audio.addEventListener('loadedmetadata', onLoadedMetadata)
+      audio.addEventListener('loadeddata',     onLoadedData)
+
+      // Sync immediately in case already loaded
+      setCurrentTime(audio.currentTime || 0)
       const d = audio.duration
       if (d && isFinite(d) && !isNaN(d) && d > 0) setDuration(d)
-    }
-    
-    const onLoadedMetadata = () => {
-      const d = audio.duration
-      if (d && isFinite(d) && !isNaN(d) && d > 0) setDuration(d)
-    }
 
-    const onLoadedData = () => {
-      const d = audio.duration
-      if (d && isFinite(d) && !isNaN(d) && d > 0) setDuration(d)
+      cleanup = () => {
+        audio.removeEventListener('timeupdate',     onTimeUpdate)
+        audio.removeEventListener('durationchange', onDurationChange)
+        audio.removeEventListener('loadedmetadata', onLoadedMetadata)
+        audio.removeEventListener('loadeddata',     onLoadedData)
+      }
+      return true
     }
 
-    audio.addEventListener('timeupdate', onTimeUpdate)
-    audio.addEventListener('durationchange', onDurationChange)
-    audio.addEventListener('loadedmetadata', onLoadedMetadata)
-    audio.addEventListener('loadeddata', onLoadedData)
-
-    // Sync current state immediately
-    setCurrentTime(audio.currentTime || 0)
-    const d = audio.duration
-    if (d && isFinite(d) && !isNaN(d) && d > 0) setDuration(d)
-
-    return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate)
-      audio.removeEventListener('durationchange', onDurationChange)
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata)
-      audio.removeEventListener('loadeddata', onLoadedData)
+    if (!attach()) {
+      // Poll until audio element is created by AudioContext's useEffect
+      const poll = setInterval(() => {
+        if (attach()) clearInterval(poll)
+      }, 100)
+      return () => { clearInterval(poll); cleanup?.() }
     }
-  }, [audioRef]) // Only bind once — audio element doesn't change
+
+    return () => cleanup?.()
+  }, [audioRef])  // audioRef object is stable — this runs once on mount
 
   // Volume sync
   useEffect(() => {
