@@ -60,7 +60,7 @@ export default function GlobalPlayer() {
     if (!isYTSong || !currentSong?.rawId) return
 
     const videoId = currentSong.rawId
-    // alive flag — set to false in cleanup to stop the rAF loop
+    // alive flag — set to false in cleanup to stop the rAF loop and cancel pending init
     const alive = { value: true }
 
     // Cancel any previous rAF polling loop
@@ -86,6 +86,8 @@ export default function GlobalPlayer() {
     }
 
     const initPlayer = () => {
+      if (!alive.value) return // Abort if cancelled before ready
+
       if (!ytReadyRef.current || !ytContainerRef.current) {
         setTimeout(initPlayer, 200)
         return
@@ -116,6 +118,10 @@ export default function GlobalPlayer() {
         },
         events: {
           onReady: (e) => {
+            if (!alive.value) {
+              try { e.target.destroy() } catch (_) {}
+              return
+            }
             e.target.setVolume(volume * 100)
             // Always autoplay — isPlaying is set true before we get here
             e.target.playVideo()
@@ -124,6 +130,7 @@ export default function GlobalPlayer() {
             startPolling(e.target)
           },
           onStateChange: (e) => {
+            if (!alive.value) return
             // Use refs so callbacks always see the latest values
             if (e.data === window.YT.PlayerState.ENDED) {
               if (isRepeatRef.current) {
@@ -135,9 +142,12 @@ export default function GlobalPlayer() {
             }
           },
           onError: (e) => {
+            if (!alive.value) return
             console.warn('[YT Player] Error code:', e.data)
             // Small delay to avoid rapid-fire errors
-            setTimeout(() => handleNextRef.current(), 500)
+            setTimeout(() => {
+              if (alive.value) handleNextRef.current()
+            }, 500)
           }
         }
       })
@@ -146,11 +156,15 @@ export default function GlobalPlayer() {
     initPlayer()
 
     return () => {
-      // Stop the rAF loop for this song
+      // Stop the rAF loop for this song and cancel initialization
       alive.value = false
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy() } catch (_) {}
+        ytPlayerRef.current = null
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSong?.rawId])
+  }, [currentSong?.rawId, isYTSong])
 
   // Sync play/pause state with YT player
   useEffect(() => {
