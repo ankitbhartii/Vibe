@@ -19,169 +19,7 @@ export default function GlobalPlayer() {
   const [isHovered, setIsHovered] = useState(false)
   const progressRef = useRef(null)
 
-  // ── YouTube IFrame Player (for ytmusic source tracks) ──
-  const ytContainerRef  = useRef(null)   // div that YT.Player mounts into
-  const ytPlayerRef     = useRef(null)   // YT.Player instance
-  const ytReadyRef      = useRef(false)  // is the YT API loaded?
-  const ytTimerRef      = useRef(null)   // rAF cancel flag object
-  // Ref mirrors for stale-closure safety inside YT event callbacks
-  const isRepeatRef     = useRef(isRepeat)
-  const handleNextRef   = useRef(handleNext)
   const isYTSong = currentSong?.source === 'ytmusic'
-
-  // Keep refs in sync with latest values
-  useEffect(() => { isRepeatRef.current = isRepeat }, [isRepeat])
-  useEffect(() => { handleNextRef.current = handleNext }, [handleNext])
-
-  // Reset timer display instantly when song changes
-  useEffect(() => {
-    setCurrentTime(0)
-    setDuration(0)
-  }, [currentSong?.id])
-
-  // Load the YouTube IFrame API script once
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (window.YT && window.YT.Player) { ytReadyRef.current = true; return }
-
-    if (!document.getElementById('yt-iframe-api')) {
-      const tag = document.createElement('script')
-      tag.id = 'yt-iframe-api'
-      tag.src = 'https://www.youtube.com/iframe_api'
-      document.head.appendChild(tag)
-    }
-
-    window.onYouTubeIframeAPIReady = () => {
-      ytReadyRef.current = true
-    }
-  }, [])
-
-  // Create / reload YT.Player when a YouTube Music song is selected
-  useEffect(() => {
-    if (!isYTSong || !currentSong?.rawId) return
-
-    const videoId = currentSong.rawId
-    // alive flag — set to false in cleanup to stop the rAF loop and cancel pending init
-    const alive = { value: true }
-
-    // Cancel any previous rAF polling loop
-    if (ytTimerRef.current) {
-      ytTimerRef.current.value = false
-      ytTimerRef.current = null
-    }
-
-    const startPolling = (player) => {
-      alive.value = true
-      ytTimerRef.current = alive
-      const tick = () => {
-        if (!alive.value) return  // cleanly cancelled
-        try {
-          const t = player.getCurrentTime() || 0
-          const d = player.getDuration() || 0
-          setCurrentTime(t)
-          if (d > 0) setDuration(d)
-        } catch (_) {}
-        requestAnimationFrame(tick)
-      }
-      requestAnimationFrame(tick)
-    }
-
-    const initPlayer = () => {
-      if (!alive.value) return // Abort if cancelled before ready
-
-      if (!ytReadyRef.current || !ytContainerRef.current) {
-        setTimeout(initPlayer, 200)
-        return
-      }
-
-      // Destroy previous player cleanly
-      if (ytPlayerRef.current) {
-        try { ytPlayerRef.current.destroy() } catch (_) {}
-        ytPlayerRef.current = null
-      }
-
-      const mountId = `yt-player-mount-${Date.now()}`
-      ytContainerRef.current.innerHTML = `<div id="${mountId}"></div>`
-
-      ytPlayerRef.current = new window.YT.Player(mountId, {
-        height: '0',
-        width: '0',
-        videoId,
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          disablekb: 1,
-          fs: 0,
-          modestbranding: 1,
-          playsinline: 1,
-          rel: 0,
-          origin: window.location.origin,
-        },
-        events: {
-          onReady: (e) => {
-            if (!alive.value) {
-              try { e.target.destroy() } catch (_) {}
-              return
-            }
-            e.target.setVolume(volume * 100)
-            // Always autoplay — isPlaying is set true before we get here
-            e.target.playVideo()
-            const d = e.target.getDuration()
-            if (d && d > 0) setDuration(d)
-            startPolling(e.target)
-          },
-          onStateChange: (e) => {
-            if (!alive.value) return
-            // Use refs so callbacks always see the latest values
-            if (e.data === window.YT.PlayerState.ENDED) {
-              if (isRepeatRef.current) {
-                e.target.seekTo(0, true)
-                e.target.playVideo()
-              } else {
-                handleNextRef.current()
-              }
-            }
-          },
-          onError: (e) => {
-            if (!alive.value) return
-            console.warn('[YT Player] Error code:', e.data)
-            // Small delay to avoid rapid-fire errors
-            setTimeout(() => {
-              if (alive.value) handleNextRef.current()
-            }, 500)
-          }
-        }
-      })
-    }
-
-    initPlayer()
-
-    return () => {
-      // Stop the rAF loop for this song and cancel initialization
-      alive.value = false
-      if (ytPlayerRef.current) {
-        try { ytPlayerRef.current.destroy() } catch (_) {}
-        ytPlayerRef.current = null
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSong?.rawId, isYTSong])
-
-  // Sync play/pause state with YT player
-  useEffect(() => {
-    const p = ytPlayerRef.current
-    if (!p || !isYTSong) return
-    try {
-      if (isPlaying) { p.playVideo() } else { p.pauseVideo() }
-    } catch (_) {}
-  }, [isPlaying, isYTSong])
-
-  // Sync volume with YT player
-  useEffect(() => {
-    const p = ytPlayerRef.current
-    if (!p || !isYTSong) return
-    try { p.setVolume(volume * 100) } catch (_) {}
-  }, [volume, isYTSong])
 
 
   // Expandable player states
@@ -369,9 +207,7 @@ export default function GlobalPlayer() {
     setStripTransition('transform 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94)')
     setStripOffset(containerW)
     setTimeout(() => {
-      // Pass YT current time so 3s-restart logic works for YT songs
-      const ytT = isYTSong && ytPlayerRef.current ? (ytPlayerRef.current.getCurrentTime() || 0) : undefined
-      handlePrev(ytT)
+      handlePrev()
       setDisplaySong(prevSong)
       setStripTransition('none')
       setStripOffset(0)
@@ -757,10 +593,7 @@ export default function GlobalPlayer() {
 
     const tick = () => {
       const audio = audioRef?.current
-      // For YT Music tracks the HTML5 audio is silent — read time from the IFrame player instead
-      const t = isYTSong && ytPlayerRef.current
-        ? (ytPlayerRef.current.getCurrentTime() || 0)
-        : (audio ? audio.currentTime : 0)
+      const t = audio ? audio.currentTime : 0
 
       // Binary search for current line
       let lo = 0, hi = parsedLyrics.length - 1, idx = -1
@@ -874,31 +707,19 @@ export default function GlobalPlayer() {
     const rect = e.currentTarget.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     const seekTo = pct * duration
-    if (isYTSong) {
-      const p = ytPlayerRef.current
-      if (p) { try { p.seekTo(seekTo, true) } catch (_) {} }
-      setCurrentTime(seekTo)
-    } else {
-      const audio = audioRef?.current
-      if (!audio || !duration) return
-      audio.currentTime = seekTo
-      setCurrentTime(seekTo)
-    }
+    const audio = audioRef?.current
+    if (!audio || !duration) return
+    audio.currentTime = seekTo
+    setCurrentTime(seekTo)
   }
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0
   const isTidal = currentSong?.id?.startsWith('tidal_')
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 
-  // Playback speed sync
   useEffect(() => {
     if (audioRef?.current) audioRef.current.playbackRate = playbackSpeed
-    // Also sync YT player speed
-    const p = ytPlayerRef.current
-    if (p && isYTSong) {
-      try { p.setPlaybackRate(playbackSpeed) } catch (_) {}
-    }
-  }, [playbackSpeed, audioRef, isYTSong])
+  }, [playbackSpeed, audioRef])
 
   // Sleep timer countdown
   useEffect(() => {
@@ -1083,12 +904,10 @@ export default function GlobalPlayer() {
                     key={idx}
                     ref={el => { if (el) lineRefsMap.current[idx] = el }}
                     onClick={() => {
-                      if (isYTSong && ytPlayerRef.current) {
-                        try { ytPlayerRef.current.seekTo(line.time, true) } catch (_) {}
+                      const audio = audioRef?.current
+                      if (audio) {
+                        audio.currentTime = line.time
                         setCurrentTime(line.time)
-                      } else {
-                        const audio = audioRef?.current
-                        if (audio) { audio.currentTime = line.time; setCurrentTime(line.time) }
                       }
                     }}
                     style={{
@@ -1407,9 +1226,6 @@ export default function GlobalPlayer() {
 
   return (
     <>
-      {/* Hidden YouTube IFrame Player container — mounts an invisible YT.Player for ytmusic tracks */}
-      <div ref={ytContainerRef} aria-hidden="true" style={{ position: 'fixed', width: 0, height: 0, overflow: 'hidden', zIndex: -1, pointerEvents: 'none' }} />
-
       {/* 1. MINI BOTTOM BAR PLAYER — Apple Music Style */}
       <div 
         className="fixed bottom-3 left-3 right-3 md:left-4 md:right-4 h-[72px] md:h-[80px] rounded-2xl px-4 md:px-5 flex items-center justify-between z-50 text-white select-none gpu-accel animate-spring-bounce"
@@ -1455,11 +1271,9 @@ export default function GlobalPlayer() {
             <button onClick={() => setIsShuffle(!isShuffle)} className={`apple-press p-1 ${isShuffle ? 'text-[#fa2d48]' : 'text-zinc-500 hover:text-white'}`} style={{ transition: 'color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }} title="Shuffle">
               <svg role="img" height="15" width="15" fill="currentColor" viewBox="0 0 16 16"><path d="M10.596 1.161a1 1 0 0 0-1.414 0L7.83 2.513l1.414 1.415 1.352-1.353 1.353 1.353 1.414-1.415-2.167-2.152zM1.05 1.05a1 1 0 0 0 0 1.414L3.636 5.05l1.415-1.414L2.464 1.05a1 1 0 0 0-1.414 0zm11.364 11.364L9.828 9.828l-1.414 1.414 2.586 2.586a1 1 0 0 0 1.414 0l2.167-2.152-1.414-1.415-1.353 1.353zm-8.778.136l8.727-8.727-1.414-1.414-8.727 8.727 1.414 1.414z"></path></svg>
             </button>
-            
             <button
               onClick={() => {
-                const ytT = isYTSong && ytPlayerRef.current ? (ytPlayerRef.current.getCurrentTime() || 0) : undefined
-                handlePrev(ytT)
+                handlePrev()
               }}
               className="text-zinc-400 hover:text-white apple-press p-1" title="Previous"
             >

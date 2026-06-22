@@ -178,14 +178,7 @@ export function AudioProvider({ children }) {
       return
     }
 
-    // ── YouTube Music tracks: bypass HTML5 audio entirely ──
-    // The YouTube IFrame Player inside GlobalPlayer handles these.
-    if (currentSong.source === 'ytmusic') {
-      audio.pause()
-      audio.src = '' // clear any previous src so it doesn't linger
-      addToHistory(currentSong)
-      return
-    }
+
 
     const songId = currentSong.id
     currentSongIdRef.current = songId
