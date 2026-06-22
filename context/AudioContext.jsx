@@ -57,6 +57,7 @@ export function AudioProvider({ children }) {
 
   const audioRef = useRef(null)
   const currentSongIdRef = useRef(null)
+  const queueNeedsInitRef = useRef(false)
 
   // Load library states on mount
   useEffect(() => {
@@ -306,13 +307,54 @@ export function AudioProvider({ children }) {
     setQueue([])
   }, [])
 
+  const appendAutoplayRecommendations = useCallback(async (seedTrack) => {
+    if (!autoplayEnabled || !seedTrack) return
+    try {
+      console.log(`📡 Appending radio recommendations for seed: "${seedTrack.title}"`)
+      let recs = []
+      if (seedTrack.source === 'ytmusic' && seedTrack.rawId) {
+        const res = await fetch(`/api/ytmusic/recommendations?videoId=${seedTrack.rawId}&limit=10`)
+        if (res.ok) {
+          const { recommendations } = await res.json()
+          recs = recommendations || []
+        }
+      } else {
+        const res = await fetch(
+          `/api/saavn/recommendations?id=${seedTrack.rawId || ''}&artist=${encodeURIComponent(seedTrack.artist || '')}`
+        )
+        if (res.ok) {
+          recs = await res.json()
+        }
+      }
+      
+      if (recs.length > 0) {
+        const ranked = scoreAndSortTracks(recs, seedTrack)
+        const autoTracks = ranked.map(t => ({ ...t, isAuto: true }))
+        setQueue(prev => {
+          const existingIds = new Set(prev.map(s => String(s.id)))
+          const filtered = autoTracks.filter(t => !existingIds.has(String(t.id)))
+          return [...prev, ...filtered]
+        })
+      }
+    } catch (err) {
+      console.error('Failed to append radio recommendations:', err)
+    }
+  }, [autoplayEnabled])
+
   const handleNext = useCallback(() => {
     // 1. Play first item from queue if available
     if (queue.length > 0) {
       const nextSong = queue[0]
-      setQueue(prev => prev.slice(1))
+      const remainingQueue = queue.slice(1)
+      setQueue(remainingQueue)
       setCurrentSong(nextSong)
       setIsPlaying(true)
+
+      // Pre-fetch more radio items if queue is running low
+      if (remainingQueue.length < 3) {
+        const seed = remainingQueue[remainingQueue.length - 1] || nextSong
+        appendAutoplayRecommendations(seed)
+      }
       return
     }
 
@@ -350,19 +392,15 @@ export function AudioProvider({ children }) {
     } else if (autoplayEnabled && currentSong) {
       triggerAutoplayRecommendations()
     }
-  }, [playlist, currentSong, isShuffle, queue, autoplayEnabled, triggerAutoplayRecommendations])
+  }, [playlist, currentSong, isShuffle, queue, autoplayEnabled, triggerAutoplayRecommendations, appendAutoplayRecommendations])
 
   const handlePrev = useCallback((currentTimeSecs) => {
-    // currentTimeSecs can be passed by GlobalPlayer for YT tracks
-    // For HTML5 audio, read directly from the element
     const t = currentTimeSecs !== undefined
       ? currentTimeSecs
       : (audioRef.current?.currentTime ?? 0)
 
     if (t > 3) {
-      // Restart current song instead of going to previous
       if (audioRef.current) audioRef.current.currentTime = 0
-      // For YT: GlobalPlayer's handlePrev wrapper will handle seekTo(0)
       return
     }
     if (!playlist.length || !currentSong) return
@@ -378,15 +416,74 @@ export function AudioProvider({ children }) {
     }
   }, [playlist, currentSong, audioRef])
 
-  const playTrack = (song, newPlaylist = []) => {
-    if (newPlaylist.length > 0) setPlaylist(newPlaylist)
+  const playTrack = useCallback((song, newPlaylist = []) => {
+    queueNeedsInitRef.current = true // Flag that we need to rebuild queue for this new seed track
+    if (newPlaylist.length > 0) {
+      setPlaylist(newPlaylist)
+    } else {
+      // Single track click — set playlist to contain just this track
+      setPlaylist([song])
+    }
+    
     if (currentSong && String(currentSong.id) === String(song.id)) {
       setIsPlaying(p => !p)
     } else {
       setCurrentSong(song)
       setIsPlaying(true)
     }
-  }
+  }, [currentSong])
+
+  // Pre-populate queue on manual song play
+  useEffect(() => {
+    if (!currentSong || !queueNeedsInitRef.current) return
+
+    const initRadioQueue = async () => {
+      try {
+        let upcomingTracks = []
+        
+        // 1. If we are playing from an album/playlist, load remaining tracks as user-queued
+        if (playlist.length > 1) {
+          const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
+          if (idx !== -1) {
+            upcomingTracks = playlist.slice(idx + 1).map(t => ({ ...t, isAuto: false }))
+          }
+        }
+
+        // 2. Fetch autoplay recommendations to append at the end
+        if (autoplayEnabled) {
+          console.log(`📡 Prefetching initial radio queue for: "${currentSong.title}"`)
+          let recs = []
+          if (currentSong.source === 'ytmusic' && currentSong.rawId) {
+            const res = await fetch(`/api/ytmusic/recommendations?videoId=${currentSong.rawId}&limit=15`)
+            if (res.ok) {
+              const data = await res.json()
+              recs = data.recommendations || []
+            }
+          } else {
+            const res = await fetch(
+              `/api/saavn/recommendations?id=${currentSong.rawId || ''}&artist=${encodeURIComponent(currentSong.artist || '')}`
+            )
+            if (res.ok) {
+              recs = await res.json()
+            }
+          }
+          
+          if (recs.length > 0) {
+            const ranked = scoreAndSortTracks(recs, currentSong)
+            const autoTracks = ranked.map(t => ({ ...t, isAuto: true }))
+            upcomingTracks = [...upcomingTracks, ...autoTracks]
+          }
+        }
+
+        setQueue(upcomingTracks)
+        queueNeedsInitRef.current = false // reset flag
+      } catch (err) {
+        console.error('Failed to pre-populate radio queue:', err)
+      }
+    }
+
+    initRadioQueue()
+  }, [currentSong?.id, playlist, autoplayEnabled])
 
   // Auto-advance when track ends
   useEffect(() => {

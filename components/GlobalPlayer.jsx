@@ -194,8 +194,13 @@ export default function GlobalPlayer() {
   const [currentLineIndex, setCurrentLineIndex] = useState(-1)
   const lyricsContainerRef = useRef(null)
   const activeLineRef = useRef(null)
-  const [recommendedTracks, setRecommendedTracks] = useState([])
-  const [recsLoading, setRecsLoading] = useState(false)
+
+  // Swipe-Up Queue bottom sheet gesture state
+  const [queueExpanded, setQueueExpanded] = useState(false)
+  const [isDraggingQueue, setIsDraggingQueue] = useState(false)
+  const [dragQueueStartY, setDragQueueStartY] = useState(0)
+  const [dragQueueDeltaY, setDragQueueDeltaY] = useState(0)
+  const queueSheetRef = useRef(null)
 
   // Action panel states
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -512,48 +517,113 @@ export default function GlobalPlayer() {
     return () => { cancelled = true }
   }, [activeOverlayTab, currentSong?.rawId, currentSong?.title, currentSong?.artist, currentSong?.album])
 
-  // Fetch recommendations when the queue tab is opened or currentSong changes
+  // Sync overlay tab with queue bottom sheet
   useEffect(() => {
-    if (activeOverlayTab !== 'queue' || !currentSong) return
+    if (queueExpanded) {
+      setActiveOverlayTab('')
+    }
+  }, [queueExpanded])
 
-    const fetchRecommendations = async () => {
-      setRecsLoading(true)
-      setRecommendedTracks([])
-      try {
-        // ── YouTube Music: fetch YouTube "Up Next" related videos ──
-        if (currentSong.source === 'ytmusic' && currentSong.rawId) {
-          const res = await fetch(`/api/ytmusic/recommendations?videoId=${currentSong.rawId}&limit=20`)
-          if (res.ok) {
-            const { recommendations } = await res.json()
-            const ranked = scoreAndSortTracks(recommendations, currentSong)
-            setRecommendedTracks(ranked || [])
-          } else {
-            setRecommendedTracks([])
-          }
-          return
-        }
+  useEffect(() => {
+    if (activeOverlayTab !== '') {
+      setQueueExpanded(false)
+    }
+  }, [activeOverlayTab])
 
-        // ── JioSaavn: fetch JioSaavn recommendations ──
-        const res = await fetch(
-          `/api/saavn/recommendations?id=${currentSong.rawId}&artist=${encodeURIComponent(currentSong.artist)}`
-        )
-        if (res.ok) {
-          const data = await res.json()
-          const ranked = scoreAndSortTracks(data, currentSong)
-          setRecommendedTracks(ranked)
-        } else {
-          setRecommendedTracks([])
+  // Drag handlers for queue bottom sheet
+  const handleQueueHeaderTouchStart = (e) => {
+    setDragQueueStartY(e.touches[0].clientY)
+    setIsDraggingQueue(true)
+    setDragQueueDeltaY(0)
+  }
+
+  const handleQueueHeaderTouchMove = (e) => {
+    if (!isDraggingQueue) return
+    const clientY = e.touches[0].clientY
+    const deltaY = clientY - dragQueueStartY
+    
+    if (queueExpanded) {
+      const clampedDeltaY = Math.max(0, deltaY)
+      setDragQueueDeltaY(clampedDeltaY)
+    } else {
+      const clampedDeltaY = Math.min(0, deltaY)
+      setDragQueueDeltaY(clampedDeltaY)
+    }
+  }
+
+  const handleQueueHeaderTouchEnd = () => {
+    if (!isDraggingQueue) return
+    setIsDraggingQueue(false)
+    
+    const finalDeltaY = dragQueueDeltaY
+    const threshold = 100
+    
+    if (Math.abs(finalDeltaY) < 5) {
+      setQueueExpanded(prev => !prev)
+    } else {
+      if (queueExpanded) {
+        if (finalDeltaY > threshold) {
+          setQueueExpanded(false)
         }
-      } catch (err) {
-        console.error('Recommendations fetch error:', err)
-        setRecommendedTracks([])
-      } finally {
-        setRecsLoading(false)
+      } else {
+        if (finalDeltaY < -threshold) {
+          setQueueExpanded(true)
+        }
       }
     }
+    setDragQueueDeltaY(0)
+  }
 
-    fetchRecommendations()
-  }, [activeOverlayTab, currentSong?.rawId, currentSong?.source, currentSong?.title, currentSong?.artist])
+  const handleQueueHeaderMouseDown = (e) => {
+    if (e.button !== 0) return
+    setDragQueueStartY(e.clientY)
+    setIsDraggingQueue(true)
+    setDragQueueDeltaY(0)
+    
+    const handleMouseMoveWindow = (ev) => {
+      const deltaY = ev.clientY - e.clientY
+      if (queueExpanded) {
+        const clampedDeltaY = Math.max(0, deltaY)
+        setDragQueueDeltaY(clampedDeltaY)
+      } else {
+        const clampedDeltaY = Math.min(0, deltaY)
+        setDragQueueDeltaY(clampedDeltaY)
+      }
+    }
+    
+    const handleMouseUpWindow = (ev) => {
+      setIsDraggingQueue(false)
+      window.removeEventListener('mousemove', handleMouseMoveWindow)
+      window.removeEventListener('mouseup', handleMouseUpWindow)
+      
+      const finalDeltaY = ev.clientY - e.clientY
+      const threshold = 100
+      
+      if (Math.abs(finalDeltaY) < 5) {
+        setQueueExpanded(prev => !prev)
+      } else {
+        if (queueExpanded) {
+          if (finalDeltaY > threshold) {
+            setQueueExpanded(false)
+          }
+        } else {
+          if (finalDeltaY < -threshold) {
+            setQueueExpanded(true)
+          }
+        }
+      }
+      setDragQueueDeltaY(0)
+    }
+    
+    window.addEventListener('mousemove', handleMouseMoveWindow)
+    window.addEventListener('mouseup', handleMouseUpWindow)
+  }
+
+  const handleQueueHeaderClick = (e) => {
+    if (Math.abs(dragQueueDeltaY) < 5) {
+      setQueueExpanded(!queueExpanded)
+    }
+  }
 
   // Per-line refs map for accurate scroll targeting
   const lineRefsMap = useRef({})
@@ -1035,11 +1105,14 @@ export default function GlobalPlayer() {
       return `${m}:${s < 10 ? '0' : ''}${s}`
     }
 
+    const upNextTracks = queue.filter(s => !s.isAuto)
+    const autoplayTracks = queue.filter(s => s.isAuto)
+
     return (
-      <div className="h-full overflow-y-auto px-4 pb-6 flex flex-col gap-4 text-left text-zinc-300 text-sm max-h-[380px] md:max-h-[460px] custom-scrollbar select-none">
+      <div className="flex flex-col gap-4 text-left text-zinc-350 text-sm select-none pt-4">
         
         {/* NOW PLAYING SONG ROW (Highlight style matching YTM) */}
-        <div>
+        <div className="px-1">
           <div className="flex items-center gap-3 bg-white/[0.04] border border-white/[0.02] p-2.5 rounded-xl">
             {/* Thumbnail */}
             <div className="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-zinc-900 shadow-md">
@@ -1061,58 +1134,84 @@ export default function GlobalPlayer() {
           </div>
         </div>
 
-        {/* UP NEXT QUEUE */}
-        {queue.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            {queue.map((song, idx) => (
-              <div 
-                key={song.id + '-' + idx} 
-                draggable
-                onDragStart={(e) => handleDragStart(e, idx)}
-                onDragOver={(e) => handleDragOver(e, idx)}
-                onDragEnd={handleDragEnd}
-                className={`flex items-center gap-3 p-2 rounded-xl group/qitem transition-colors hover:bg-white/[0.03] cursor-grab active:cursor-grabbing ${
-                  draggedIndex === idx ? 'bg-white/[0.08] opacity-55 border border-[#fa2d48]/35' : 'border border-transparent'
-                }`}
-              >
-                {/* Thumbnail */}
-                <div className="relative shrink-0 w-9 h-9 rounded-lg overflow-hidden bg-zinc-900 shadow-sm">
-                  {song.image_url ? (
-                    <img src={song.image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xs">🎵</div>
-                  )}
-                </div>
-                {/* Metadata */}
-                <div className="flex-1 min-w-0" onClick={() => playTrack(song, playlist)}>
-                  <p className="text-xs font-medium text-zinc-200 truncate group-hover/qitem:text-white transition-colors">{song.title}</p>
-                  <p className="text-[10px] text-zinc-400 truncate mt-0.5">{getSubText(song)}</p>
-                </div>
-                {/* Actions (Delete icon on hover, drag reorder icon) */}
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <button 
-                    onClick={() => removeFromQueue(song.id)}
-                    className="opacity-0 group-hover/qitem:opacity-100 text-zinc-500 hover:text-red-400 p-1 transition-opacity text-xs"
-                    title="Remove from queue"
-                  >
-                    ✕
-                  </button>
-                  {/* Reorder equals sign handle icon */}
-                  <svg className="text-zinc-500 hover:text-zinc-300 w-4 h-4 cursor-row-resize" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <line x1="4" y1="9" x2="20" y2="9" />
-                    <line x1="4" y1="15" x2="20" y2="15" />
-                  </svg>
-                </div>
-              </div>
-            ))}
+        {/* UP NEXT SECTION */}
+        <div className="flex flex-col gap-1.5">
+          <div className="px-1 flex justify-between items-center text-zinc-400 text-xs font-bold font-mono uppercase tracking-wider mb-1">
+            <span>Up Next</span>
+            {upNextTracks.length > 0 && <span className="text-[10px] text-zinc-600 font-normal normal-case">{upNextTracks.length} songs</span>}
           </div>
-        )}
+          {upNextTracks.length === 0 ? (
+            <p 
+              onDragOver={(e) => {
+                e.preventDefault()
+                if (draggedIndex !== null) {
+                  const newQueue = [...queue]
+                  const draggedItem = { ...newQueue[draggedIndex], isAuto: false }
+                  newQueue.splice(draggedIndex, 1)
+                  newQueue.splice(0, 0, draggedItem)
+                  setDraggedIndex(0)
+                  setQueue(newQueue)
+                }
+              }}
+              className="text-[11px] text-zinc-550 italic px-2 py-2 border border-dashed border-zinc-800/40 rounded-xl text-center"
+            >
+              No upcoming user tracks
+            </p>
+          ) : (
+            upNextTracks.map((song) => {
+              const globalIdx = queue.findIndex(s => s.id === song.id)
+              return (
+                <div 
+                  key={song.id + '-' + globalIdx} 
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, globalIdx)}
+                  onDragOver={(e) => handleDragOver(e, globalIdx)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-3 p-2 rounded-xl group/qitem transition-colors hover:bg-white/[0.03] cursor-grab active:cursor-grabbing ${
+                    draggedIndex === globalIdx ? 'bg-white/[0.08] opacity-55 border border-[#fa2d48]/35' : 'border border-transparent'
+                  }`}
+                >
+                  {/* Thumbnail */}
+                  <div className="relative shrink-0 w-9 h-9 rounded-lg overflow-hidden bg-zinc-900 shadow-sm">
+                    {song.image_url ? (
+                      <img src={song.image_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs">🎵</div>
+                    )}
+                  </div>
+                  {/* Metadata */}
+                  <div className="flex-1 min-w-0" onClick={() => playTrack(song, playlist)}>
+                    <p className="text-xs font-medium text-zinc-200 truncate group-hover/qitem:text-white transition-colors">{song.title}</p>
+                    <p className="text-[10px] text-zinc-400 truncate mt-0.5">{getSubText(song)}</p>
+                  </div>
+                  {/* Actions */}
+                  <div className="flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => removeFromQueue(song.id)}
+                      className="opacity-0 group-hover/qitem:opacity-100 text-zinc-500 hover:text-red-400 p-1 transition-opacity text-xs"
+                      title="Remove from queue"
+                    >
+                      ✕
+                    </button>
+                    {/* Reorder handle = */}
+                    <div className="text-zinc-500 hover:text-zinc-300 p-1 cursor-row-resize">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="4" y1="9" x2="20" y2="9" />
+                        <line x1="4" y1="15" x2="20" y2="15" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
 
-        {/* AUTOPLAY TOGGLE ROW */}
-        <div className="flex justify-between items-center border-t border-white/5 pt-3">
+        {/* AUTOPLAY TOGGLE ROW (Acts as the header between lists) */}
+        <div className="flex justify-between items-center border-t border-white/5 pt-4 px-1 mt-2">
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-zinc-200">Autoplay Similar Songs</span>
-            <span className="text-[9px] text-zinc-500 font-mono mt-0.5">Appends recommended hits when list ends</span>
+            <span className="text-xs font-bold text-zinc-200 font-sans">Autoplay Similar Songs</span>
+            <span className="text-[9px] text-zinc-550 font-mono mt-0.5">Appends recommended hits when list ends</span>
           </div>
           <button 
             onClick={() => setAutoplayEnabled(!autoplayEnabled)}
@@ -1122,108 +1221,96 @@ export default function GlobalPlayer() {
           </button>
         </div>
 
-        {/* RECOMMENDED / SIMILAR SONGS LIST (ML SCORING ENGINE SORTED) */}
-        <div className="border-t border-white/5 pt-3">
-          {/* Header — YouTube-branded for YT songs, plain for JioSaavn */}
-          <div className="flex items-center gap-2 mb-3 px-1">
-            {isYTSong ? (
-              <>
-                <span className="text-base leading-none" style={{ color: '#ff4444' }}>▶</span>
-                <h3 className="text-xs font-bold font-mono uppercase tracking-widest" style={{ color: '#ff4444' }}>
-                  YouTube Up Next
-                </h3>
-                <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-mono font-bold ml-auto">
-                  SIMILAR VIDEOS
-                </span>
-              </>
+        {/* AUTOPLAY SECTION */}
+        {autoplayEnabled && (
+          <div className="flex flex-col gap-1.5 mt-1 border-t border-white/5 pt-3">
+            <div className="px-1 flex items-center gap-2 mb-2">
+              {isYTSong ? (
+                <>
+                  <span className="text-base leading-none animate-pulse" style={{ color: '#ff4444' }}>▶</span>
+                  <h3 className="text-xs font-bold font-mono uppercase tracking-widest" style={{ color: '#ff4444' }}>
+                    YouTube Music Autoplay
+                  </h3>
+                  <span className="text-[8px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-mono font-bold ml-auto">
+                    RADIO ACTIVE
+                  </span>
+                </>
+              ) : (
+                <h3 className="text-xs font-bold font-mono text-zinc-400 uppercase tracking-widest">Autoplay Queue</h3>
+              )}
+            </div>
+
+            {autoplayTracks.length === 0 ? (
+              <div 
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  if (draggedIndex !== null) {
+                    const targetIdx = queue.length - 1
+                    const newQueue = [...queue]
+                    const draggedItem = { ...newQueue[draggedIndex], isAuto: true }
+                    newQueue.splice(draggedIndex, 1)
+                    newQueue.push(draggedItem)
+                    setDraggedIndex(targetIdx)
+                    setQueue(newQueue)
+                  }
+                }}
+                className="flex flex-col items-center justify-center gap-2 py-8 border border-dashed border-zinc-800/40 rounded-xl"
+              >
+                <span className="text-xl animate-bounce">{isYTSong ? '📺' : '🎵'}</span>
+                <p className="text-xs text-zinc-550 italic text-center">
+                  Loading autoplay recommendations...
+                </p>
+              </div>
             ) : (
-              <h3 className="text-xs font-bold font-mono text-zinc-400 uppercase tracking-widest">Recommended Tracks</h3>
+              autoplayTracks.map((song) => {
+                const globalIdx = queue.findIndex(s => s.id === song.id)
+                return (
+                  <div 
+                    key={song.id + '-' + globalIdx} 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, globalIdx)}
+                    onDragOver={(e) => handleDragOver(e, globalIdx)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center gap-3 p-2 rounded-xl group/qitem transition-colors hover:bg-white/[0.03] cursor-grab active:cursor-grabbing ${
+                      draggedIndex === globalIdx ? 'bg-white/[0.08] opacity-55 border border-[#fa2d48]/35' : 'border border-transparent'
+                    }`}
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative shrink-0 w-9 h-9 rounded-lg overflow-hidden bg-zinc-900 shadow-sm">
+                      {song.image_url ? (
+                        <img src={song.image_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs">🎵</div>
+                      )}
+                    </div>
+                    {/* Metadata */}
+                    <div className="flex-1 min-w-0" onClick={() => playTrack(song, playlist)}>
+                      <p className="text-xs font-medium text-zinc-200 truncate group-hover/qitem:text-white transition-colors">{song.title}</p>
+                      <p className="text-[10px] text-zinc-400 truncate mt-0.5">{getSubText(song)}</p>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => removeFromQueue(song.id)}
+                        className="opacity-0 group-hover/qitem:opacity-100 text-zinc-500 hover:text-red-400 p-1 transition-opacity text-xs"
+                        title="Remove from queue"
+                      >
+                        ✕
+                      </button>
+                      {/* Reorder handle = */}
+                      <div className="text-zinc-500 hover:text-zinc-300 p-1 cursor-row-resize">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <line x1="4" y1="9" x2="20" y2="9" />
+                          <line x1="4" y1="15" x2="20" y2="15" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
             )}
           </div>
-
-          {recsLoading ? (
-            <div className="flex flex-col gap-2">
-              {[1,2,3,4].map(i => (
-                <div key={i} className="flex items-center gap-2.5 p-2 rounded-xl animate-pulse">
-                  <div className="w-8 h-8 bg-zinc-800 rounded-md shrink-0" />
-                  <div className="flex-1 flex flex-col gap-1">
-                    <div className="h-2 bg-zinc-800 rounded w-3/4" />
-                    <div className="h-2 bg-zinc-800/60 rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : recommendedTracks.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-4">
-              <span className="text-xl">{isYTSong ? '📺' : '🎵'}</span>
-              <p className="text-xs text-zinc-650 italic text-center">
-                {isYTSong ? 'No related YouTube videos found.' : 'No recommendations found.'}
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {recommendedTracks.map((song) => (
-                <div
-                  key={song.id}
-                  className="flex items-center gap-3 hover:bg-white/[0.02] border border-transparent p-2 rounded-xl group/recitem transition-all cursor-pointer"
-                  onClick={() => playTrack(song, recommendedTracks)}
-                >
-                  {/* Thumbnail */}
-                  <div className="relative shrink-0 w-9 h-9 rounded-lg overflow-hidden bg-zinc-900">
-                    {song.image_url ? (
-                      <img src={song.image_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-sm">
-                        {isYTSong ? '▶' : '🎵'}
-                      </div>
-                    )}
-                    {/* YT play overlay on hover */}
-                    {isYTSong && (
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/recitem:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
-                        <svg width="10" height="10" viewBox="0 0 16 16" fill="white"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Title + Artist */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-zinc-300 group-hover/recitem:text-white truncate transition-colors leading-tight">
-                      {song.title}
-                    </p>
-                    <p className="text-[10px] text-zinc-550 truncate mt-0.5 leading-tight">
-                      {getSubText(song)}
-                    </p>
-                  </div>
-
-                  {/* Actions (reorder drag icon that adds to queue, or +Q button) */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); addToQueue(song) }}
-                      className="text-[9px] bg-zinc-800 hover:bg-[#fa2d48] hover:text-black text-zinc-300 px-1.5 py-0.5 rounded font-mono font-bold transition opacity-0 group-hover/recitem:opacity-100"
-                      title="Add to queue"
-                    >
-                      +Q
-                    </button>
-                    {/* Reorder drag handle (drag adds it to queue) */}
-                    <svg 
-                      onClick={(e) => { e.stopPropagation(); addToQueue(song) }}
-                      className="text-zinc-650 hover:text-zinc-300 w-4 h-4 cursor-pointer" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor" 
-                      strokeWidth="2"
-                      title="Add to queue"
-                    >
-                      <line x1="4" y1="9" x2="20" y2="9" />
-                      <line x1="4" y1="15" x2="20" y2="15" />
-                    </svg>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+        )}
       </div>
     )
   }
@@ -1359,7 +1446,7 @@ export default function GlobalPlayer() {
           {/* HEADER ROW */}
           <div className="flex justify-between items-center w-full max-w-md mx-auto pb-3">
             <button 
-              onClick={() => { setIsExpanded(false); setActiveOverlayTab(''); }}
+              onClick={() => { setIsExpanded(false); setActiveOverlayTab(''); setQueueExpanded(false); }}
               className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center apple-press"
               title="Close Player"
             >
@@ -1410,33 +1497,6 @@ export default function GlobalPlayer() {
                   <button onClick={() => setActiveOverlayTab('')} className="text-zinc-500 hover:text-white text-xs px-1">✕ Close</button>
                 </div>
                 {renderXRay()}
-              </div>
-            ) : activeOverlayTab === 'queue' ? (
-              <div className="w-full h-full min-h-[350px] md:min-h-[420px] bg-[#121214]/95 border border-white/5 rounded-3xl flex flex-col justify-between overflow-hidden shadow-[0_-8px_32px_rgba(0,0,0,0.5)] transition-all duration-300">
-                {/* Header matching YTM style */}
-                <div className="p-4 flex flex-col shrink-0">
-                  {/* Drag bar indicator */}
-                  <div 
-                    onClick={() => setActiveOverlayTab('')}
-                    className="w-12 h-1 bg-zinc-700/80 hover:bg-zinc-650 rounded-full mx-auto mb-3 cursor-pointer transition-colors"
-                  />
-                  <div className="flex justify-between items-end px-2">
-                    <div>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-none">Playing from</p>
-                      <h2 className="text-base md:text-lg font-bold text-white mt-1 leading-none">Your Queue</h2>
-                    </div>
-                    <button 
-                      onClick={() => alert("Save queue feature coming soon!")}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-full border border-white/5 transition flex items-center gap-1.5"
-                    >
-                      <svg role="img" height="12" width="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
-                      Save
-                    </button>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  {renderQueue()}
-                </div>
               </div>
             ) : (
               <div
@@ -1615,9 +1675,9 @@ export default function GlobalPlayer() {
 
               {/* QUEUE */}
               <button
-                onClick={() => setActiveOverlayTab(activeOverlayTab === 'queue' ? '' : 'queue')}
+                onClick={() => setQueueExpanded(!queueExpanded)}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition ${
-                  activeOverlayTab === 'queue' ? 'bg-[#fa2d48] text-black shadow-lg hover:bg-[#ff5577]' : 'bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                  queueExpanded ? 'bg-[#fa2d48] text-black shadow-lg hover:bg-[#ff5577]' : 'bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800 hover:text-white'
                 }`}
                 title="Up Next Queue"
               >
@@ -1860,6 +1920,58 @@ export default function GlobalPlayer() {
             )}
 
           </div>
+
+          {/* YOUTUBE MUSIC STYLE SLIDE-UP QUEUE BOTTOM SHEET */}
+          <div
+            ref={queueSheetRef}
+            className="absolute bottom-0 left-0 right-0 z-50 bg-[#121214]/95 border-t border-white/5 rounded-t-3xl flex flex-col overflow-hidden shadow-[0_-8px_32px_rgba(0,0,0,0.6)]"
+            style={{
+              height: '85%',
+              transform: isDraggingQueue 
+                ? (queueExpanded 
+                    ? `translateY(${Math.max(0, dragQueueDeltaY)}px)`
+                    : `translateY(calc(100% - 72px + ${Math.min(0, dragQueueDeltaY)}px))`)
+                : (queueExpanded ? 'translateY(0)' : 'translateY(calc(100% - 72px))'),
+              transition: isDraggingQueue ? 'none' : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
+            }}
+          >
+            {/* Header: draggable peek bar */}
+            <div 
+              onMouseDown={handleQueueHeaderMouseDown}
+              onTouchStart={handleQueueHeaderTouchStart}
+              onTouchMove={handleQueueHeaderTouchMove}
+              onTouchEnd={handleQueueHeaderTouchEnd}
+              onClick={handleQueueHeaderClick}
+              className="h-[72px] p-3.5 pb-3 flex flex-col justify-between shrink-0 cursor-grab active:cursor-grabbing select-none border-b border-white/5 bg-zinc-900/40"
+            >
+              {/* Drag indicator line */}
+              <div className="w-12 h-1 bg-zinc-700/80 rounded-full mx-auto mb-2" />
+              
+              <div className="flex justify-between items-end px-2">
+                <div>
+                  <p className="text-[10px] text-zinc-550 font-bold uppercase tracking-widest leading-none">Playing from</p>
+                  <h2 className="text-base md:text-lg font-bold text-white mt-1 leading-none font-sans">Your Queue</h2>
+                </div>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); alert("Save queue feature coming soon!") }}
+                  className="bg-white/[0.08] hover:bg-white/[0.15] text-white font-semibold text-xs px-3.5 py-1.5 rounded-full border border-white/[0.08] transition flex items-center gap-1.5"
+                >
+                  <svg role="img" height="12" width="12" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2z"/>
+                    <path d="M12 3v10h-1V3h1z"/>
+                    <path d="M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V5l-5 1V2.82z"/>
+                  </svg>
+                  Save
+                </button>
+              </div>
+            </div>
+
+            {/* List container */}
+            <div className="flex-1 overflow-y-auto px-4 pb-6 custom-scrollbar bg-zinc-950/40">
+              {renderQueue()}
+            </div>
+          </div>
+
         </div>
       )}
 
