@@ -149,13 +149,25 @@ export function AudioProvider({ children }) {
     })
   }
 
-  // Create ONE Audio element for the lifetime of the app
-  if (typeof window !== 'undefined' && !audioRef.current) {
-    const a = new Audio()
-    a.preload = 'auto'
-    a.volume = 0.7
-    audioRef.current = a
-  }
+  // Create ONE Audio element on mount — MUST be in useEffect, NOT render body.
+  // Putting it in the render body causes React Strict Mode to double-invoke the
+  // component function, creating TWO Audio elements that both play = echo.
+  useEffect(() => {
+    if (!audioRef.current) {
+      const a = new Audio()
+      a.preload = 'auto'
+      a.volume = 0.7
+      audioRef.current = a
+    }
+    return () => {
+      // On unmount (HMR / Strict Mode cleanup) — pause & destroy the element
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ''
+        audioRef.current = null
+      }
+    }
+  }, [])  // empty deps = runs once on mount, cleanup on unmount
 
   const supabase = createClient()
   const fetchPlaylists = async () => {
@@ -218,23 +230,27 @@ export function AudioProvider({ children }) {
     // Add to history via stable ref — does NOT trigger this effect to re-run
     addToHistoryRef.current?.(currentSong)
 
-    // Load new src only if it changed
     if (!alreadyLoaded) {
+      // CRITICAL: pause + clear src BEFORE loading new one.
+      // Skipping this causes the old audio to overlap the new one (echo).
+      audio.pause()
       audio.src = fullSrc
+      audio.load()  // abort any in-flight request for the old src
     }
 
-    // Play immediately — the browser will fetch and buffer in parallel
+    // Play — browser buffers in parallel
     const playPromise = audio.play()
     if (playPromise !== undefined) {
       playPromise.catch(err => {
-        if (currentSongIdRef.current !== songId) return // stale
-        if (err.name === 'AbortError') return // interrupted by next song, fine
+        if (currentSongIdRef.current !== songId) return // stale, ignore
+        if (err.name === 'AbortError') return           // interrupted by next song, fine
         if (err.name === 'NotAllowedError') {
+          // Autoplay blocked — need user gesture first
           setIsPlaying(false)
           return
         }
         console.warn(`Audio play error (${err.name}): ${err.message}`)
-        // On MEDIA_ERR or other errors, retry once after 1s
+        // Retry once after 1 s on media errors
         setTimeout(() => {
           if (currentSongIdRef.current !== songId) return
           audio.load()
