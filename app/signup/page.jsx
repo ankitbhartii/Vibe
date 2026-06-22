@@ -5,6 +5,7 @@ import { signup } from '../auth/actions'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import VibeLoader from '@/components/VibeLoader'
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -23,7 +24,11 @@ export default function SignupPage() {
     }
 
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Run session check + 3s minimum timer in parallel so animation always plays
+      const [{ data: { session } }] = await Promise.all([
+        supabase.auth.getSession(),
+        new Promise(resolve => setTimeout(resolve, 3000))
+      ])
       if (session) {
         window.location.href = '/dashboard'
       } else {
@@ -43,13 +48,7 @@ export default function SignupPage() {
   }
 
   if (checkingSession) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
-        <div className="text-xs font-bold font-mono text-zinc-500 animate-pulse">
-          ⚡ CHECKING VIBE SESSION...
-        </div>
-      </div>
-    )
+    return <VibeLoader />
   }
 
   return (

@@ -58,6 +58,8 @@ export function AudioProvider({ children }) {
   const audioRef = useRef(null)
   const currentSongIdRef = useRef(null)
   const queueNeedsInitRef = useRef(false)
+  const addToHistoryRef = useRef(null)
+  const autoplayEnabledRef = useRef(true)
 
   // Load library states on mount
   useEffect(() => {
@@ -91,6 +93,10 @@ export function AudioProvider({ children }) {
       return updated
     })
   }, [])
+
+  // Keep a stable ref so playback effect can call it without being in deps
+  useEffect(() => { addToHistoryRef.current = addToHistory }, [addToHistory])
+  useEffect(() => { autoplayEnabledRef.current = autoplayEnabled }, [autoplayEnabled])
 
   const toggleSaveAlbum = (album) => {
     if (!album) return
@@ -143,13 +149,25 @@ export function AudioProvider({ children }) {
     })
   }
 
-  // Create ONE Audio element for the lifetime of the app
-  if (typeof window !== 'undefined' && !audioRef.current) {
-    const a = new Audio()
-    a.preload = 'auto'
-    a.volume = 0.7
-    audioRef.current = a
-  }
+  // Create ONE Audio element on mount — MUST be in useEffect, NOT render body.
+  // Putting it in the render body causes React Strict Mode to double-invoke the
+  // component function, creating TWO Audio elements that both play = echo.
+  useEffect(() => {
+    if (!audioRef.current) {
+      const a = new Audio()
+      a.preload = 'auto'
+      a.volume = 0.7
+      audioRef.current = a
+    }
+    return () => {
+      // On unmount (HMR / Strict Mode cleanup) — pause & destroy the element
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ''
+        audioRef.current = null
+      }
+    }
+  }, [])  // empty deps = runs once on mount, cleanup on unmount
 
   const supabase = createClient()
   const fetchPlaylists = async () => {
@@ -168,7 +186,9 @@ export function AudioProvider({ children }) {
     } catch (_) {}
   }, [])
 
-  // ── Playback engine: ALWAYS call play() directly, never wait for canplay first ──
+  // ── Playback engine: fires ONLY when song ID or isPlaying changes ──
+  // NOTE: addToHistory is intentionally excluded from deps — we use a ref
+  // to call it so that history state updates never re-trigger this effect.
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -183,7 +203,7 @@ export function AudioProvider({ children }) {
     if (currentSong.source === 'ytmusic') {
       audio.pause()
       audio.src = '' // clear any previous src so it doesn't linger
-      addToHistory(currentSong)
+      addToHistoryRef.current?.(currentSong)
       return
     }
 
@@ -207,28 +227,30 @@ export function AudioProvider({ children }) {
       return
     }
 
-    // Add to history
-    addToHistory(currentSong)
+    // Add to history via stable ref — does NOT trigger this effect to re-run
+    addToHistoryRef.current?.(currentSong)
 
-    // Load new src if it changed
     if (!alreadyLoaded) {
+      // CRITICAL: pause + clear src BEFORE loading new one.
+      // Skipping this causes the old audio to overlap the new one (echo).
+      audio.pause()
       audio.src = fullSrc
-      // Don't call audio.load() — play() will trigger loading automatically
+      audio.load()  // abort any in-flight request for the old src
     }
 
-    // Play immediately — the browser will fetch and buffer in parallel
+    // Play — browser buffers in parallel
     const playPromise = audio.play()
     if (playPromise !== undefined) {
       playPromise.catch(err => {
-        if (currentSongIdRef.current !== songId) return // stale
-        if (err.name === 'AbortError') return // interrupted by next song, fine
+        if (currentSongIdRef.current !== songId) return // stale, ignore
+        if (err.name === 'AbortError') return           // interrupted by next song, fine
         if (err.name === 'NotAllowedError') {
-          // Autoplay blocked — need user gesture. Set isPlaying to false so UI is accurate.
+          // Autoplay blocked — need user gesture first
           setIsPlaying(false)
           return
         }
         console.warn(`Audio play error (${err.name}): ${err.message}`)
-        // On MEDIA_ERR or other errors, retry once after 1s
+        // Retry once after 1 s on media errors
         setTimeout(() => {
           if (currentSongIdRef.current !== songId) return
           audio.load()
@@ -236,7 +258,8 @@ export function AudioProvider({ children }) {
         }, 1000)
       })
     }
-  }, [currentSong, isPlaying, addToHistory])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?.id, isPlaying])
 
   // Autoplay Recommendations Engine
   const triggerAutoplayRecommendations = useCallback(async () => {
@@ -434,34 +457,40 @@ export function AudioProvider({ children }) {
   }, [currentSong])
 
   // Pre-populate queue on manual song play
+  // Depends only on currentSong?.id — playlist & autoplayEnabled are read via
+  // refs/closure snapshots so they don't re-trigger this effect on every render.
   useEffect(() => {
     if (!currentSong || !queueNeedsInitRef.current) return
+
+    // Snapshot stable values at the time the effect runs
+    const songSnapshot = currentSong
+    const playlistSnapshot = playlist
 
     const initRadioQueue = async () => {
       try {
         let upcomingTracks = []
         
-        // 1. If we are playing from an album/playlist, load remaining tracks as user-queued
-        if (playlist.length > 1) {
-          const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
+        // 1. If playing from an album/playlist, load remaining tracks
+        if (playlistSnapshot.length > 1) {
+          const idx = playlistSnapshot.findIndex(s => String(s.id) === String(songSnapshot.id))
           if (idx !== -1) {
-            upcomingTracks = playlist.slice(idx + 1).map(t => ({ ...t, isAuto: false }))
+            upcomingTracks = playlistSnapshot.slice(idx + 1).map(t => ({ ...t, isAuto: false }))
           }
         }
 
-        // 2. Fetch autoplay recommendations to append at the end
-        if (autoplayEnabled) {
-          console.log(`📡 Prefetching initial radio queue for: "${currentSong.title}"`)
+        // 2. Fetch autoplay recommendations to append (read autoplayEnabled from ref)
+        if (autoplayEnabledRef.current) {
+          console.log(`📡 Prefetching initial radio queue for: "${songSnapshot.title}"`)
           let recs = []
-          if (currentSong.source === 'ytmusic' && currentSong.rawId) {
-            const res = await fetch(`/api/ytmusic/recommendations?videoId=${currentSong.rawId}&limit=15`)
+          if (songSnapshot.source === 'ytmusic' && songSnapshot.rawId) {
+            const res = await fetch(`/api/ytmusic/recommendations?videoId=${songSnapshot.rawId}&limit=15`)
             if (res.ok) {
               const data = await res.json()
               recs = data.recommendations || []
             }
           } else {
             const res = await fetch(
-              `/api/saavn/recommendations?id=${currentSong.rawId || ''}&artist=${encodeURIComponent(currentSong.artist || '')}`
+              `/api/saavn/recommendations?id=${songSnapshot.rawId || ''}&artist=${encodeURIComponent(songSnapshot.artist || '')}`
             )
             if (res.ok) {
               recs = await res.json()
@@ -469,21 +498,22 @@ export function AudioProvider({ children }) {
           }
           
           if (recs.length > 0) {
-            const ranked = scoreAndSortTracks(recs, currentSong)
+            const ranked = scoreAndSortTracks(recs, songSnapshot)
             const autoTracks = ranked.map(t => ({ ...t, isAuto: true }))
             upcomingTracks = [...upcomingTracks, ...autoTracks]
           }
         }
 
         setQueue(upcomingTracks)
-        queueNeedsInitRef.current = false // reset flag
+        queueNeedsInitRef.current = false
       } catch (err) {
         console.error('Failed to pre-populate radio queue:', err)
       }
     }
 
     initRadioQueue()
-  }, [currentSong?.id, playlist, autoplayEnabled])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?.id])
 
   // Auto-advance when track ends
   useEffect(() => {
