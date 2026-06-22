@@ -320,15 +320,23 @@ export function AudioProvider({ children }) {
     }
   }, [playlist, currentSong, isShuffle, queue, autoplayEnabled, triggerAutoplayRecommendations])
 
-  const handlePrev = useCallback(() => {
-    if (audioRef.current?.currentTime > 3) {
-      audioRef.current.currentTime = 0
+  const handlePrev = useCallback((currentTimeSecs) => {
+    // currentTimeSecs can be passed by GlobalPlayer for YT tracks
+    // For HTML5 audio, read directly from the element
+    const t = currentTimeSecs !== undefined
+      ? currentTimeSecs
+      : (audioRef.current?.currentTime ?? 0)
+
+    if (t > 3) {
+      // Restart current song instead of going to previous
+      if (audioRef.current) audioRef.current.currentTime = 0
+      // For YT: GlobalPlayer's handlePrev wrapper will handle seekTo(0)
       return
     }
     if (!playlist.length || !currentSong) return
     const idx = playlist.findIndex(s => String(s.id) === String(currentSong.id))
     if (idx === -1) {
-      audioRef.current.currentTime = 0
+      if (audioRef.current) audioRef.current.currentTime = 0
       return
     }
     const prev = playlist[idx <= 0 ? playlist.length - 1 : idx - 1]
@@ -336,7 +344,7 @@ export function AudioProvider({ children }) {
       setCurrentSong(prev)
       setIsPlaying(true)
     }
-  }, [playlist, currentSong])
+  }, [playlist, currentSong, audioRef])
 
   const playTrack = (song, newPlaylist = []) => {
     if (newPlaylist.length > 0) setPlaylist(newPlaylist)
