@@ -13,8 +13,8 @@ export async function login(formData) {
 
   const { error } = await supabase.auth.signInWithPassword(data)
   
-  // If error, send the exact Supabase error message to the UI
-  if (error) redirect(`/auth?message=${encodeURIComponent(error.message)}`)
+  // If error, send the exact Supabase error message to the login page
+  if (error) redirect(`/login?message=${encodeURIComponent(error.message)}`)
 
   revalidatePath('/dashboard', 'layout')
   redirect('/dashboard')
@@ -29,7 +29,8 @@ export async function signup(formData) {
 
   const { error } = await supabase.auth.signUp(data)
   
-  if (error) redirect(`/auth?message=${encodeURIComponent(error.message)}`)
+  // If error, send the exact Supabase error message to the signup page
+  if (error) redirect(`/signup?message=${encodeURIComponent(error.message)}`)
 
   revalidatePath('/dashboard', 'layout')
   redirect('/dashboard')

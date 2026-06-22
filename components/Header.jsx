@@ -173,7 +173,7 @@ export default function Header({ onMenuToggle, mobileMenuOpen }) {
           </div>
         ) : (
           <>
-            <Link href="/auth" className="hover:text-white transition-colors duration-300 apple-press">Sign up</Link>
+            <Link href="/signup" className="hover:text-white transition-colors duration-300 apple-press">Sign up</Link>
             <Link 
               href="/login" 
               className="bg-white text-black px-5 py-2 rounded-full font-semibold text-[13px] apple-press"

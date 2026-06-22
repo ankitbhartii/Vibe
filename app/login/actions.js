@@ -18,7 +18,7 @@ export async function login(formData) {
   })
 
   if (error) {
-    return redirect('/login?message=Could not authenticate user')
+    return redirect(`/login?message=${encodeURIComponent(error.message)}`)
   }
 
   // If successful, send them to the dashboard
