@@ -229,8 +229,28 @@ export function AudioProvider({ children }) {
   // Autoplay Recommendations Engine
   const triggerAutoplayRecommendations = useCallback(async () => {
     if (!currentSong) return
+
     try {
-      console.log(`📡 Autoplay: Fetching recommendations for "${currentSong.title}"`)
+      // ── YouTube Music tracks: use YouTube's own "Up Next" recommendations ──
+      if (currentSong.source === 'ytmusic' && currentSong.rawId) {
+        console.log(`📡 Autoplay [YouTube]: Fetching related videos for "${currentSong.title}"`)
+        const res = await fetch(`/api/ytmusic/recommendations?videoId=${currentSong.rawId}&limit=15`)
+        if (res.ok) {
+          const { recommendations } = await res.json()
+          if (Array.isArray(recommendations) && recommendations.length > 0) {
+            setCurrentSong(recommendations[0])
+            setQueue(recommendations.slice(1))
+            setIsPlaying(true)
+            return
+          }
+        }
+        // Fallback: if YT recs fail, just keep playing (no action)
+        console.warn('⚠️ YouTube autoplay recommendations returned empty')
+        return
+      }
+
+      // ── JioSaavn tracks: use JioSaavn's recommendation engine ──
+      console.log(`📡 Autoplay [JioSaavn]: Fetching recommendations for "${currentSong.title}"`)
       const res = await fetch(
         `/api/saavn/recommendations?id=${currentSong.rawId || ''}&artist=${encodeURIComponent(currentSong.artist || '')}`
       )
@@ -238,14 +258,13 @@ export function AudioProvider({ children }) {
         const recs = await res.json()
         if (Array.isArray(recs) && recs.length > 0) {
           const firstRec = recs[0]
-          // The rest go to the queue
           setQueue(recs.slice(1))
           setCurrentSong(firstRec)
           setIsPlaying(true)
         }
       }
     } catch (err) {
-      console.error("❌ Autoplay failed to fetch recommendations:", err)
+      console.error('❌ Autoplay failed to fetch recommendations:', err)
     }
   }, [currentSong])
 

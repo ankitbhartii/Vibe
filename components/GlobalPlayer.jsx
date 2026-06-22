@@ -428,29 +428,44 @@ export default function GlobalPlayer() {
 
   // Fetch recommendations when the queue tab is opened or currentSong changes
   useEffect(() => {
-    if (activeOverlayTab === 'queue' && currentSong?.rawId) {
-      const fetchRecommendations = async () => {
-        setRecsLoading(true)
-        try {
-          const res = await fetch(
-            `/api/saavn/recommendations?id=${currentSong.rawId}&artist=${encodeURIComponent(currentSong.artist)}`
-          )
+    if (activeOverlayTab !== 'queue' || !currentSong) return
+
+    const fetchRecommendations = async () => {
+      setRecsLoading(true)
+      setRecommendedTracks([])
+      try {
+        // ── YouTube Music: fetch YouTube "Up Next" related videos ──
+        if (currentSong.source === 'ytmusic' && currentSong.rawId) {
+          const res = await fetch(`/api/ytmusic/recommendations?videoId=${currentSong.rawId}&limit=20`)
           if (res.ok) {
-            const data = await res.json()
-            setRecommendedTracks(data)
+            const { recommendations } = await res.json()
+            setRecommendedTracks(recommendations || [])
           } else {
             setRecommendedTracks([])
           }
-        } catch (err) {
-          console.error("Recommendations fetch error:", err)
-          setRecommendedTracks([])
-        } finally {
-          setRecsLoading(false)
+          return
         }
+
+        // ── JioSaavn: fetch JioSaavn recommendations ──
+        const res = await fetch(
+          `/api/saavn/recommendations?id=${currentSong.rawId}&artist=${encodeURIComponent(currentSong.artist)}`
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setRecommendedTracks(data)
+        } else {
+          setRecommendedTracks([])
+        }
+      } catch (err) {
+        console.error('Recommendations fetch error:', err)
+        setRecommendedTracks([])
+      } finally {
+        setRecsLoading(false)
       }
-      fetchRecommendations()
     }
-  }, [activeOverlayTab, currentSong?.rawId, currentSong?.title, currentSong?.artist])
+
+    fetchRecommendations()
+  }, [activeOverlayTab, currentSong?.rawId, currentSong?.source, currentSong?.title, currentSong?.artist])
 
   // Per-line refs map for accurate scroll targeting
   const lineRefsMap = useRef({})
@@ -990,29 +1005,86 @@ export default function GlobalPlayer() {
 
         {/* RECOMMENDED SONGS LIST */}
         <div className="border-t border-zinc-900/60 pt-3">
-          <h3 className="text-xs font-bold font-mono text-zinc-400 uppercase tracking-widest mb-3">Recommended Tracks</h3>
+          {/* Header — YouTube-branded for YT songs, plain for JioSaavn */}
+          <div className="flex items-center gap-2 mb-3">
+            {isYTSong ? (
+              <>
+                <span className="text-base leading-none">▶</span>
+                <h3 className="text-xs font-bold font-mono uppercase tracking-widest" style={{ color: '#ff4444' }}>
+                  YouTube Up Next
+                </h3>
+                <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-mono font-bold ml-auto">
+                  SIMILAR VIDEOS
+                </span>
+              </>
+            ) : (
+              <h3 className="text-xs font-bold font-mono text-zinc-400 uppercase tracking-widest">Recommended Tracks</h3>
+            )}
+          </div>
+
           {recsLoading ? (
-            <div className="flex items-center justify-center py-4 text-[10px] font-mono tracking-widest text-zinc-650 animate-pulse">
-              ⚡ FETCHING RECOMMENDATIONS...
+            <div className="flex flex-col gap-2">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="flex items-center gap-2.5 p-2 rounded-xl animate-pulse">
+                  <div className="w-8 h-8 bg-zinc-800 rounded-md shrink-0" />
+                  <div className="flex-1 flex flex-col gap-1">
+                    <div className="h-2 bg-zinc-800 rounded w-3/4" />
+                    <div className="h-2 bg-zinc-800/60 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : recommendedTracks.length === 0 ? (
-            <p className="text-xs text-zinc-650 italic pl-1">No recommendations found.</p>
+            <div className="flex flex-col items-center gap-2 py-4">
+              <span className="text-xl">{isYTSong ? '📺' : '🎵'}</span>
+              <p className="text-xs text-zinc-600 italic text-center">
+                {isYTSong ? 'No related YouTube videos found.' : 'No recommendations found.'}
+              </p>
+            </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {recommendedTracks.map((song) => (
-                <div key={song.id} className="flex items-center gap-2.5 bg-zinc-900/15 hover:bg-zinc-900/35 border border-zinc-800/10 p-2 rounded-xl group/recitem transition">
-                  {song.image_url && <img src={song.image_url} alt="" className="w-8 h-8 object-cover rounded-md" />}
-                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => playTrack(song, recommendedTracks)}>
-                    <p className="text-xs font-semibold text-zinc-350 group-hover/recitem:text-white truncate transition-colors">{song.title}</p>
-                    <p className="text-[10px] text-zinc-500 truncate">{song.artist}</p>
+                <div
+                  key={song.id}
+                  className="flex items-center gap-2.5 hover:bg-zinc-900/40 border border-transparent hover:border-zinc-800/30 p-2 rounded-xl group/recitem transition-all cursor-pointer"
+                  onClick={() => playTrack(song, recommendedTracks)}
+                >
+                  {/* Thumbnail */}
+                  <div className="relative shrink-0 w-9 h-9 rounded-lg overflow-hidden bg-zinc-900">
+                    {song.image_url ? (
+                      <img src={song.image_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-sm">
+                        {isYTSong ? '▶' : '🎵'}
+                      </div>
+                    )}
+                    {/* YT play overlay on hover */}
+                    {isYTSong && (
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/recitem:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
+                        <svg width="10" height="10" viewBox="0 0 16 16" fill="white"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => addToQueue(song)}
-                      className="text-[10px] bg-zinc-850/80 hover:bg-zinc-800 text-zinc-300 hover:text-white px-2 py-1 rounded font-mono font-bold transition"
+
+                  {/* Title + Artist */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-zinc-300 group-hover/recitem:text-white truncate transition-colors leading-tight">
+                      {song.title}
+                    </p>
+                    <p className="text-[10px] text-zinc-500 truncate mt-0.5 leading-tight">
+                      {song.artist}
+                      {song.duration > 0 && ` · ${formatTime(song.duration)}`}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover/recitem:opacity-100 transition-opacity shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); addToQueue(song) }}
+                      className="text-[9px] bg-zinc-800 hover:bg-[#fa2d48] hover:text-black text-zinc-300 px-1.5 py-0.5 rounded font-mono font-bold transition"
                       title="Add to queue"
                     >
-                      + QUEUE
+                      +Q
                     </button>
                   </div>
                 </div>
