@@ -197,15 +197,12 @@ export default function GlobalPlayer() {
 
   // Swipe-Up Queue bottom sheet gesture state
   const [queueExpanded, setQueueExpanded] = useState(false)
-  const [isDraggingQueue, setIsDraggingQueue] = useState(false)
-  const [dragQueueStartY, setDragQueueStartY] = useState(0)
-  const [dragQueueDeltaY, setDragQueueDeltaY] = useState(0)
   const queueSheetRef = useRef(null)
 
   // Drag down player to minimize gesture state
-  const [playerTranslateY, setPlayerTranslateY] = useState(0)
+  const playerContainerRef = useRef(null)
+  const dragDeltaYRef = useRef(0)
   const [isDraggingPlayer, setIsDraggingPlayer] = useState(false)
-  const [dragPlayerStartY, setDragPlayerStartY] = useState(0)
   const dragStartYRef = useRef(null)
   const dragDirectionRef = useRef(null)
 
@@ -424,7 +421,13 @@ export default function GlobalPlayer() {
     } else if (dragDirectionRef.current === 'vertical') {
       if (queueExpanded) return
       const dy = clientY - dragStartYRef.current
-      setPlayerTranslateY(Math.max(0, dy))
+      const clampedDy = Math.max(0, dy)
+      dragDeltaYRef.current = clampedDy
+      const player = playerContainerRef.current
+      if (player) {
+        player.style.transition = 'none'
+        player.style.transform = `translateY(${clampedDy}px)`
+      }
     }
   }
 
@@ -447,12 +450,23 @@ export default function GlobalPlayer() {
       else if (goPrev)  triggerPrevWithAnimation()
       else              snapToCenter()
     } else if (direction === 'vertical') {
-      if (playerTranslateY > 120) {
-        setIsExpanded(false)
-        setActiveOverlayTab('')
-        setQueueExpanded(false)
+      const finalY = dragDeltaYRef.current
+      const player = playerContainerRef.current
+      if (player) {
+        if (finalY > 120) {
+          player.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+          player.style.transform = 'translateY(100%)'
+          setTimeout(() => {
+            setIsExpanded(false)
+            setActiveOverlayTab('')
+            setQueueExpanded(false)
+          }, 300)
+        } else {
+          player.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+          player.style.transform = 'translateY(0)'
+        }
       }
-      setPlayerTranslateY(0)
+      dragDeltaYRef.current = 0
     }
     
     dragStartXRef.current = null
@@ -578,103 +592,124 @@ export default function GlobalPlayer() {
 
   // Drag handlers for queue bottom sheet
   const handleQueueHeaderTouchStart = (e) => {
-    setDragQueueStartY(e.touches[0].clientY)
-    setIsDraggingQueue(true)
-    setDragQueueDeltaY(0)
-  }
+    const startY = e.touches[0].clientY
+    const sheet = queueSheetRef.current
+    if (!sheet) return
+    sheet.style.transition = 'none'
 
-  const handleQueueHeaderTouchMove = (e) => {
-    if (!isDraggingQueue) return
-    const clientY = e.touches[0].clientY
-    const deltaY = clientY - dragQueueStartY
-    
-    if (queueExpanded) {
-      const clampedDeltaY = Math.max(0, deltaY)
-      setDragQueueDeltaY(clampedDeltaY)
-    } else {
-      const clampedDeltaY = Math.min(0, deltaY)
-      setDragQueueDeltaY(clampedDeltaY)
-    }
-  }
+    let hasDragged = false
 
-  const handleQueueHeaderTouchEnd = () => {
-    if (!isDraggingQueue) return
-    setIsDraggingQueue(false)
-    
-    const finalDeltaY = dragQueueDeltaY
-    const threshold = 100
-    
-    if (Math.abs(finalDeltaY) < 5) {
-      setQueueExpanded(prev => !prev)
-    } else {
+    const onTouchMove = (ev) => {
+      const clientY = ev.touches[0].clientY
+      const deltaY = clientY - startY
+      hasDragged = true
+
       if (queueExpanded) {
-        if (finalDeltaY > threshold) {
-          setQueueExpanded(false)
-        }
+        const clampedDeltaY = Math.max(0, deltaY)
+        sheet.style.transform = `translateY(${clampedDeltaY}px)`
       } else {
-        if (finalDeltaY < -threshold) {
-          setQueueExpanded(true)
+        const clampedDeltaY = Math.min(0, deltaY)
+        sheet.style.transform = `translateY(calc(100% - 72px + ${clampedDeltaY}px))`
+      }
+    }
+
+    const onTouchEnd = (ev) => {
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      
+      const finalY = ev.changedTouches[0].clientY - startY
+      const threshold = 100
+
+      sheet.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)'
+
+      if (Math.abs(finalY) < 5 || !hasDragged) {
+        const nextState = !queueExpanded
+        sheet.style.transform = nextState ? 'translateY(0)' : 'translateY(calc(100% - 72px))'
+        setQueueExpanded(nextState)
+      } else {
+        if (queueExpanded) {
+          if (finalY > threshold) {
+            sheet.style.transform = 'translateY(calc(100% - 72px))'
+            setQueueExpanded(false)
+          } else {
+            sheet.style.transform = 'translateY(0)'
+          }
+        } else {
+          if (finalY < -threshold) {
+            sheet.style.transform = 'translateY(0)'
+            setQueueExpanded(true)
+          } else {
+            sheet.style.transform = 'translateY(calc(100% - 72px))'
+          }
         }
       }
     }
-    setDragQueueDeltaY(0)
+
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    window.addEventListener('touchend', onTouchEnd)
   }
 
   const handleQueueHeaderMouseDown = (e) => {
     if (e.button !== 0) return
-    setDragQueueStartY(e.clientY)
-    setIsDraggingQueue(true)
-    setDragQueueDeltaY(0)
+    const startY = e.clientY
+    const sheet = queueSheetRef.current
+    if (!sheet) return
+    sheet.style.transition = 'none'
     
+    let hasDragged = false
+
     const handleMouseMoveWindow = (ev) => {
-      const deltaY = ev.clientY - e.clientY
+      const deltaY = ev.clientY - startY
+      hasDragged = true
+
       if (queueExpanded) {
         const clampedDeltaY = Math.max(0, deltaY)
-        setDragQueueDeltaY(clampedDeltaY)
+        sheet.style.transform = `translateY(${clampedDeltaY}px)`
       } else {
         const clampedDeltaY = Math.min(0, deltaY)
-        setDragQueueDeltaY(clampedDeltaY)
+        sheet.style.transform = `translateY(calc(100% - 72px + ${clampedDeltaY}px))`
       }
     }
     
     const handleMouseUpWindow = (ev) => {
-      setIsDraggingQueue(false)
       window.removeEventListener('mousemove', handleMouseMoveWindow)
       window.removeEventListener('mouseup', handleMouseUpWindow)
       
-      const finalDeltaY = ev.clientY - e.clientY
+      const finalY = ev.clientY - startY
       const threshold = 100
       
-      if (Math.abs(finalDeltaY) < 5) {
-        setQueueExpanded(prev => !prev)
+      sheet.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)'
+
+      if (Math.abs(finalY) < 5 || !hasDragged) {
+        const nextState = !queueExpanded
+        sheet.style.transform = nextState ? 'translateY(0)' : 'translateY(calc(100% - 72px))'
+        setQueueExpanded(nextState)
       } else {
         if (queueExpanded) {
-          if (finalDeltaY > threshold) {
+          if (finalY > threshold) {
+            sheet.style.transform = 'translateY(calc(100% - 72px))'
             setQueueExpanded(false)
+          } else {
+            sheet.style.transform = 'translateY(0)'
           }
         } else {
-          if (finalDeltaY < -threshold) {
+          if (finalY < -threshold) {
+            sheet.style.transform = 'translateY(0)'
             setQueueExpanded(true)
+          } else {
+            sheet.style.transform = 'translateY(calc(100% - 72px))'
           }
         }
       }
-      setDragQueueDeltaY(0)
     }
     
     window.addEventListener('mousemove', handleMouseMoveWindow)
     window.addEventListener('mouseup', handleMouseUpWindow)
   }
 
-  const handleQueueHeaderClick = (e) => {
-    if (Math.abs(dragQueueDeltaY) < 5) {
-      setQueueExpanded(!queueExpanded)
-    }
-  }
-
   // Swipe down player to minimize gesture handlers
   const startPlayerDrag = (clientY) => {
     if (queueExpanded) return
-    setDragPlayerStartY(clientY)
     setIsDraggingPlayer(true)
   }
 
@@ -1485,11 +1520,13 @@ export default function GlobalPlayer() {
       {/* 2. EXPANDED APPLE MUSIC FULL-SCREEN PLAYER */}
       {isExpanded && (
         <div 
+          ref={playerContainerRef}
           className="fixed inset-0 z-[100] flex flex-col justify-between select-none text-white overflow-hidden animate-expand-player" 
           style={{ 
             background: '#000',
-            transform: `translateY(${playerTranslateY}px)`,
-            transition: (isDraggingPlayer || dragDirectionRef.current === 'vertical') ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+            transform: 'translateY(0)',
+            transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+            willChange: 'transform',
           }}
         >
           {/* Dynamic Blurred Adaptive Backdrop — Apple Music style */}
@@ -1507,42 +1544,76 @@ export default function GlobalPlayer() {
           <div 
             onMouseDown={(e) => {
               if (e.button !== 0) return
-              startPlayerDrag(e.clientY)
+              if (queueExpanded) return
+              setIsDraggingPlayer(true)
+              const startY = e.clientY
+              const player = playerContainerRef.current
+              if (player) player.style.transition = 'none'
+
               const onMouseMove = (ev) => {
-                const dy = ev.clientY - e.clientY
-                setPlayerTranslateY(Math.max(0, dy))
+                const dy = ev.clientY - startY
+                const clamped = Math.max(0, dy)
+                if (player) player.style.transform = `translateY(${clamped}px)`
               }
+
               const onMouseUp = (ev) => {
                 window.removeEventListener('mousemove', onMouseMove)
                 window.removeEventListener('mouseup', onMouseUp)
                 setIsDraggingPlayer(false)
-                const finalY = ev.clientY - e.clientY
-                if (finalY > 120) {
-                  setIsExpanded(false)
-                  setActiveOverlayTab('')
-                  setQueueExpanded(false)
+                const finalY = ev.clientY - startY
+                if (player) {
+                  if (finalY > 120) {
+                    player.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                    player.style.transform = 'translateY(100%)'
+                    setTimeout(() => {
+                      setIsExpanded(false)
+                      setActiveOverlayTab('')
+                      setQueueExpanded(false)
+                    }, 300)
+                  } else {
+                    player.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                    player.style.transform = 'translateY(0)'
+                  }
                 }
-                setPlayerTranslateY(0)
               }
               window.addEventListener('mousemove', onMouseMove)
               window.addEventListener('mouseup', onMouseUp)
             }}
             onTouchStart={(e) => {
-              startPlayerDrag(e.touches[0].clientY)
-            }}
-            onTouchMove={(e) => {
-              if (!isDraggingPlayer) return
-              const dy = e.touches[0].clientY - dragPlayerStartY
-              setPlayerTranslateY(Math.max(0, dy))
-            }}
-            onTouchEnd={() => {
-              setIsDraggingPlayer(false)
-              if (playerTranslateY > 120) {
-                setIsExpanded(false)
-                setActiveOverlayTab('')
-                setQueueExpanded(false)
+              if (queueExpanded) return
+              setIsDraggingPlayer(true)
+              const startY = e.touches[0].clientY
+              const player = playerContainerRef.current
+              if (player) player.style.transition = 'none'
+
+              const onTouchMove = (ev) => {
+                const dy = ev.touches[0].clientY - startY
+                const clamped = Math.max(0, dy)
+                if (player) player.style.transform = `translateY(${clamped}px)`
               }
-              setPlayerTranslateY(0)
+
+              const onTouchEnd = (ev) => {
+                window.removeEventListener('touchmove', onTouchMove)
+                window.removeEventListener('touchend', onTouchEnd)
+                setIsDraggingPlayer(false)
+                const finalY = ev.changedTouches[0].clientY - startY
+                if (player) {
+                  if (finalY > 120) {
+                    player.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                    player.style.transform = 'translateY(100%)'
+                    setTimeout(() => {
+                      setIsExpanded(false)
+                      setActiveOverlayTab('')
+                      setQueueExpanded(false)
+                    }, 300)
+                  } else {
+                    player.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                    player.style.transform = 'translateY(0)'
+                  }
+                }
+              }
+              window.addEventListener('touchmove', onTouchMove, { passive: true })
+              window.addEventListener('touchend', onTouchEnd)
             }}
             className="flex justify-between items-center w-full max-w-md mx-auto pt-5 px-5 pb-3 cursor-row-resize select-none"
           >
@@ -2028,21 +2099,15 @@ export default function GlobalPlayer() {
             className="absolute bottom-0 left-0 right-0 z-50 bg-[#121214]/95 border-t border-white/5 rounded-t-3xl flex flex-col overflow-hidden shadow-[0_-8px_32px_rgba(0,0,0,0.6)]"
             style={{
               height: '85%',
-              transform: isDraggingQueue 
-                ? (queueExpanded 
-                    ? `translateY(${Math.max(0, dragQueueDeltaY)}px)`
-                    : `translateY(calc(100% - 72px + ${Math.min(0, dragQueueDeltaY)}px))`)
-                : (queueExpanded ? 'translateY(0)' : 'translateY(calc(100% - 72px))'),
-              transition: isDraggingQueue ? 'none' : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
+              transform: queueExpanded ? 'translateY(0)' : 'translateY(calc(100% - 72px))',
+              transition: 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
+              willChange: 'transform',
             }}
           >
             {/* Header: draggable peek bar */}
             <div 
               onMouseDown={handleQueueHeaderMouseDown}
               onTouchStart={handleQueueHeaderTouchStart}
-              onTouchMove={handleQueueHeaderTouchMove}
-              onTouchEnd={handleQueueHeaderTouchEnd}
-              onClick={handleQueueHeaderClick}
               className="h-[72px] p-3.5 pb-3 flex flex-col justify-between shrink-0 cursor-grab active:cursor-grabbing select-none border-b border-white/5 bg-zinc-900/40"
             >
               {/* Drag indicator line */}
