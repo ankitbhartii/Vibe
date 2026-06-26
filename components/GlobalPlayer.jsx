@@ -478,15 +478,47 @@ export default function GlobalPlayer() {
     dragStartYRef.current = null
   }
 
-  const handleTouchStart = (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY)
-  const handleTouchMove  = (e) => {
-    if (dragDirectionRef.current === 'horizontal') e.preventDefault()
+  const handleWindowMouseMove = useCallback((e) => {
+    moveDrag(e.clientX, e.clientY)
+  }, [animating])
+
+  const handleWindowTouchMove = useCallback((e) => {
+    if (dragDirectionRef.current === 'horizontal') {
+      if (e.cancelable) e.preventDefault()
+    }
     moveDrag(e.touches[0].clientX, e.touches[0].clientY)
+  }, [animating])
+
+  const handleWindowMouseUp = useCallback(() => {
+    cleanupWindowListeners()
+    endDrag()
+  }, [])
+
+  const handleWindowTouchEnd = useCallback(() => {
+    cleanupWindowListeners()
+    endDrag()
+  }, [])
+
+  const cleanupWindowListeners = () => {
+    setIsDraggingPlayer(false)
+    window.removeEventListener('mousemove', handleWindowMouseMove)
+    window.removeEventListener('mouseup', handleWindowMouseUp)
+    window.removeEventListener('touchmove', handleWindowTouchMove)
+    window.removeEventListener('touchend', handleWindowTouchEnd)
   }
-  const handleTouchEnd   = ()  => endDrag()
-  const handleMouseDown  = (e) => { e.preventDefault(); startDrag(e.clientX, e.clientY) }
-  const handleMouseMove  = (e) => moveDrag(e.clientX, e.clientY)
-  const handleMouseUp    = ()  => endDrag()
+
+  const handleTouchStart = (e) => {
+    startDrag(e.touches[0].clientX, e.touches[0].clientY)
+    window.addEventListener('touchmove', handleWindowTouchMove, { passive: false })
+    window.addEventListener('touchend', handleWindowTouchEnd, { passive: false })
+  }
+
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    startDrag(e.clientX, e.clientY)
+    window.addEventListener('mousemove', handleWindowMouseMove, { passive: false })
+    window.addEventListener('mouseup', handleWindowMouseUp, { passive: false })
+  }
 
   const prevSong = getPrevSong()
   const nextSong = getNextSong()
@@ -597,46 +629,49 @@ export default function GlobalPlayer() {
 
   // Drag handlers for queue bottom sheet
   const handleQueueHeaderTouchStart = (e) => {
-    setDragQueueStartY(e.touches[0].clientY)
+    const startY = e.touches[0].clientY
+    setDragQueueStartY(startY)
     setIsDraggingQueue(true)
     setDragQueueDeltaY(0)
-  }
 
-  const handleQueueHeaderTouchMove = (e) => {
-    if (!isDraggingQueue) return
-    const clientY = e.touches[0].clientY
-    const deltaY = clientY - dragQueueStartY
-    
-    if (queueExpanded) {
-      const clampedDeltaY = Math.max(0, deltaY)
-      setDragQueueDeltaY(clampedDeltaY)
-    } else {
-      const clampedDeltaY = Math.min(0, deltaY)
-      setDragQueueDeltaY(clampedDeltaY)
-    }
-  }
-
-  const handleQueueHeaderTouchEnd = () => {
-    if (!isDraggingQueue) return
-    setIsDraggingQueue(false)
-    
-    const finalDeltaY = dragQueueDeltaY
-    const threshold = 100
-    
-    if (Math.abs(finalDeltaY) < 5) {
-      setQueueExpanded(prev => !prev)
-    } else {
+    const handleTouchMoveWindow = (ev) => {
+      const deltaY = ev.touches[0].clientY - startY
       if (queueExpanded) {
-        if (finalDeltaY > threshold) {
-          setQueueExpanded(false)
-        }
+        const clampedDeltaY = Math.max(0, deltaY)
+        setDragQueueDeltaY(clampedDeltaY)
       } else {
-        if (finalDeltaY < -threshold) {
-          setQueueExpanded(true)
+        const clampedDeltaY = Math.min(0, deltaY)
+        setDragQueueDeltaY(clampedDeltaY)
+      }
+      if (ev.cancelable) ev.preventDefault()
+    }
+
+    const handleTouchEndWindow = (ev) => {
+      setIsDraggingQueue(false)
+      window.removeEventListener('touchmove', handleTouchMoveWindow)
+      window.removeEventListener('touchend', handleTouchEndWindow)
+
+      const finalDeltaY = ev.changedTouches[0] ? (ev.changedTouches[0].clientY - startY) : 0
+      const threshold = 60 // More responsive toggle threshold
+
+      if (Math.abs(finalDeltaY) < 5) {
+        setQueueExpanded(prev => !prev)
+      } else {
+        if (queueExpanded) {
+          if (finalDeltaY > threshold) {
+            setQueueExpanded(false)
+          }
+        } else {
+          if (finalDeltaY < -threshold) {
+            setQueueExpanded(true)
+          }
         }
       }
+      setDragQueueDeltaY(0)
     }
-    setDragQueueDeltaY(0)
+
+    window.addEventListener('touchmove', handleTouchMoveWindow, { passive: false })
+    window.addEventListener('touchend', handleTouchEndWindow, { passive: false })
   }
 
   const handleQueueHeaderMouseDown = (e) => {
@@ -662,7 +697,7 @@ export default function GlobalPlayer() {
       window.removeEventListener('mouseup', handleMouseUpWindow)
       
       const finalDeltaY = ev.clientY - e.clientY
-      const threshold = 100
+      const threshold = 60 // More responsive toggle threshold
       
       if (Math.abs(finalDeltaY) < 5) {
         setQueueExpanded(prev => !prev)
@@ -1560,7 +1595,7 @@ export default function GlobalPlayer() {
                 window.removeEventListener('mouseup', onMouseUp)
                 setIsDraggingPlayer(false)
                 const finalY = ev.clientY - e.clientY
-                if (finalY > 120) {
+                if (finalY > 60) { // 60px responsive threshold
                   setIsExpanded(false)
                   setActiveOverlayTab('')
                   setQueueExpanded(false)
@@ -1571,21 +1606,30 @@ export default function GlobalPlayer() {
               window.addEventListener('mouseup', onMouseUp)
             }}
             onTouchStart={(e) => {
-              startPlayerDrag(e.touches[0].clientY)
-            }}
-            onTouchMove={(e) => {
-              if (!isDraggingPlayer) return
-              const dy = e.touches[0].clientY - dragPlayerStartY
-              setPlayerTranslateY(Math.max(0, dy))
-            }}
-            onTouchEnd={() => {
-              setIsDraggingPlayer(false)
-              if (playerTranslateY > 120) {
-                setIsExpanded(false)
-                setActiveOverlayTab('')
-                setQueueExpanded(false)
+              const startY = e.touches[0].clientY
+              startPlayerDrag(startY)
+              
+              const onTouchMove = (ev) => {
+                const dy = ev.touches[0].clientY - startY
+                setPlayerTranslateY(Math.max(0, dy))
+                if (ev.cancelable) ev.preventDefault()
               }
-              setPlayerTranslateY(0)
+              
+              const onTouchEnd = (ev) => {
+                window.removeEventListener('touchmove', onTouchMove)
+                window.removeEventListener('touchend', onTouchEnd)
+                setIsDraggingPlayer(false)
+                const finalY = ev.changedTouches[0] ? (ev.changedTouches[0].clientY - startY) : 0
+                if (finalY > 60) { // 60px responsive threshold
+                  setIsExpanded(false)
+                  setActiveOverlayTab('')
+                  setQueueExpanded(false)
+                }
+                setPlayerTranslateY(0)
+              }
+              
+              window.addEventListener('touchmove', onTouchMove, { passive: false })
+              window.addEventListener('touchend', onTouchEnd, { passive: false })
             }}
             className="flex justify-between items-center w-full max-w-md mx-auto pt-5 px-5 pb-3 cursor-row-resize select-none"
           >
@@ -1646,13 +1690,8 @@ export default function GlobalPlayer() {
               <div
                 className="w-full overflow-hidden relative h-72 sm:h-80 select-none cursor-grab active:cursor-grabbing"
                 onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
                 onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                style={{ touchAction: 'pan-y' }}
+                style={{ touchAction: 'none' }}
               >
                 {/* Strip: 300% wide, starts at translateX(-33.333%) so center panel shows */}
                 <div
@@ -2083,8 +2122,6 @@ export default function GlobalPlayer() {
             <div 
               onMouseDown={handleQueueHeaderMouseDown}
               onTouchStart={handleQueueHeaderTouchStart}
-              onTouchMove={handleQueueHeaderTouchMove}
-              onTouchEnd={handleQueueHeaderTouchEnd}
               onClick={handleQueueHeaderClick}
               className="h-[72px] p-3.5 pb-3 flex flex-col justify-between shrink-0 cursor-grab active:cursor-grabbing select-none border-b border-white/5 bg-zinc-900/40"
             >

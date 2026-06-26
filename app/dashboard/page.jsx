@@ -193,6 +193,9 @@ export default function MainDashboardPage() {
   // Library / custom playlist songs states
   const [librarySongs, setLibrarySongs] = useState([])
   const [libraryLoading, setLibraryLoading] = useState(false)
+  const [playlistSearchQuery, setPlaylistSearchQuery] = useState('')
+  const [playlistSearchResults, setPlaylistSearchResults] = useState([])
+  const [playlistSearchLoading, setPlaylistSearchLoading] = useState(false)
   
   const { 
     currentSong, isPlaying, playTrack, toggleFavorite,
@@ -299,6 +302,8 @@ export default function MainDashboardPage() {
     fetchLibraryContent()
     // Reset details view when user navigates side menus
     setSelectedSaavnItem(null)
+    setPlaylistSearchQuery('')
+    setPlaylistSearchResults([])
   }, [activeMenu, selectedPlaylistId])
 
   // 3b. Fetch Podcasts Content
@@ -520,6 +525,41 @@ export default function MainDashboardPage() {
     return () => clearTimeout(delayDebounceFn)
   }, [podcastSearchQuery])
 
+  // 5c. Debounced Custom Playlist Search Controller
+  useEffect(() => {
+    if (!playlistSearchQuery.trim()) {
+      setPlaylistSearchResults([])
+      setPlaylistSearchLoading(false)
+      return
+    }
+
+    setPlaylistSearchLoading(true)
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const response = await fetch('/api/saavn/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: playlistSearchQuery })
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          setPlaylistSearchResults(result.songs || [])
+        } else {
+          setPlaylistSearchResults([])
+        }
+      } catch (err) {
+        console.error("Playlist search API error:", err)
+        setPlaylistSearchResults([])
+      } finally {
+        setPlaylistSearchLoading(false)
+      }
+    }, 400)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [playlistSearchQuery])
+
   // 6. Handle Adding Song to Playlists
   const handleAddToPlaylist = async (e, song, playlistId) => {
     e.stopPropagation()
@@ -548,13 +588,37 @@ export default function MainDashboardPage() {
         .insert([{ playlist_id: playlistId, song_id: targetSongId }])
       
       if (!juncError) {
-        alert("âœ¨ Saved seamlessly to your custom library playlist!")
+        alert("✨ Saved seamlessly to your custom library playlist!")
         setPlaylistMenuOpenId(null)
+        if (activeMenu === 'custom_playlist' && selectedPlaylistId === playlistId) {
+          fetchLibraryContent()
+        }
       } else {
         alert("💡 This song is already a member of that playlist.")
       }
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  // Handle Removing Song from Custom Playlists
+  const handleRemoveFromPlaylist = async (e, songId, playlistId) => {
+    e.stopPropagation()
+    try {
+      const { error } = await supabase
+        .from('playlist_songs')
+        .delete()
+        .eq('playlist_id', playlistId)
+        .eq('song_id', songId)
+      
+      if (!error) {
+        // Refresh the list immediately
+        fetchLibraryContent()
+      } else {
+        alert("Failed to remove song from playlist.")
+      }
+    } catch (err) {
+      console.error("Error removing song from playlist:", err)
     }
   }
 
@@ -693,7 +757,7 @@ export default function MainDashboardPage() {
                       onClick={() => toggleSaveAlbum(selectedSaavnItem)}
                       className="border border-zinc-700 bg-transparent text-white font-bold text-xs py-3 px-6 rounded-full transition-all hover:bg-zinc-900 w-max"
                     >
-                      {savedAlbums.some(a => String(a.id) === String(selectedSaavnItem.id)) ? '💚 Saved to Library' : 'âž• Save to Library'}
+                      {savedAlbums.some(a => String(a.id) === String(selectedSaavnItem.id)) ? '💚 Saved to Library' : '➕ Save to Library'}
                     </button>
                   )}
                   {selectedSaavnItem.type === 'artist' && (
@@ -701,7 +765,7 @@ export default function MainDashboardPage() {
                       onClick={() => toggleFollowArtist({ id: selectedSaavnItem.id, title: selectedSaavnItem.title || selectedSaavnItem.name, image_url: selectedSaavnItem.image_url })}
                       className="border border-zinc-700 bg-transparent text-white font-bold text-xs py-3 px-6 rounded-full transition-all hover:bg-zinc-900 w-max"
                     >
-                      {savedArtists.some(a => String(a.id) === String(selectedSaavnItem.id)) ? '👤 Following' : 'âž• Follow Artist'}
+                      {savedArtists.some(a => String(a.id) === String(selectedSaavnItem.id)) ? '👤 Following' : '➕ Follow Artist'}
                     </button>
                   )}
                   {(selectedSaavnItem.type === 'show' || (selectedSaavnItem.type === 'playlist' && (selectedSaavnItem.title?.toLowerCase().includes('podcast') || activeMenu === 'podcasts' || activeMenu === 'library_podcasts'))) && (
@@ -709,7 +773,7 @@ export default function MainDashboardPage() {
                       onClick={() => toggleSubscribePodcast({ id: selectedSaavnItem.id, title: selectedSaavnItem.title, image_url: selectedSaavnItem.image_url, subtitle: selectedSaavnItem.subtitle || 'Podcast' })}
                       className="border border-zinc-700 bg-transparent text-white font-bold text-xs py-3 px-6 rounded-full transition-all hover:bg-zinc-900 w-max"
                     >
-                      {savedPodcasts.some(p => String(p.id) === String(selectedSaavnItem.id)) ? '🔔 Subscribed' : 'âž• Subscribe'}
+                      {savedPodcasts.some(p => String(p.id) === String(selectedSaavnItem.id)) ? '🔔 Subscribed' : '➕ Subscribe'}
                     </button>
                   )}
                 </div>
@@ -731,7 +795,7 @@ export default function MainDashboardPage() {
                       <div 
                         key={song.id} 
                         onClick={() => playTrack(song, saavnItemTracks)}
-                        className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                        className={`relative flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                       >
                         <div className="flex items-center gap-4 min-w-0 flex-1">
                           <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
@@ -765,10 +829,10 @@ export default function MainDashboardPage() {
                             {customPlaylists?.length > 0 && (
                               <button 
                                 onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
-                                className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
                                 title="Add to Playlist"
                               >
-                                âž•
+                                ➕
                               </button>
                             )}
                           </div>
@@ -875,13 +939,13 @@ export default function MainDashboardPage() {
                               <div 
                                 key={song.id} 
                                 onClick={() => playTrack(song, searchResults.songs)}
-                                className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                                className={`relative flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                               >
                                 <div className="flex items-center gap-4 min-w-0 flex-1">
                                   <img src={song.image_url} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0" />
                                   <div className="flex flex-col min-w-0">
                                     <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ {song.album}</span>
+                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -904,10 +968,10 @@ export default function MainDashboardPage() {
                                     {customPlaylists?.length > 0 && (
                                       <button 
                                         onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
-                                        className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                        className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
                                         title="Add to Playlist"
                                       >
-                                        âž•
+                                        ➕
                                       </button>
                                     )}
                                   </div>
@@ -944,7 +1008,7 @@ export default function MainDashboardPage() {
                               <div 
                                 key={song.id} 
                                 onClick={() => playTrack(song, ytSearchResults)}
-                                className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                                className={`relative flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                               >
                                 <div className="flex items-center gap-4 min-w-0 flex-1">
                                   {song.image_url ? (
@@ -954,7 +1018,7 @@ export default function MainDashboardPage() {
                                   )}
                                   <div className="flex flex-col min-w-0">
                                     <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ YouTube Stream</span>
+                                    <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • YouTube Stream</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -977,10 +1041,10 @@ export default function MainDashboardPage() {
                                     {customPlaylists?.length > 0 && (
                                       <button 
                                         onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
-                                        className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                        className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
                                         title="Add to Playlist"
                                       >
-                                        âž•
+                                        ➕
                                       </button>
                                     )}
                                   </div>
@@ -1025,7 +1089,7 @@ export default function MainDashboardPage() {
                             <div 
                               key={song.id} 
                               onClick={() => playTrack(song, ytSearchResults)}
-                              className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                              className={`relative flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                             >
                               <div className="flex items-center gap-4 min-w-0 flex-1">
                                 {song.image_url ? (
@@ -1035,7 +1099,7 @@ export default function MainDashboardPage() {
                                 )}
                                 <div className="flex flex-col min-w-0">
                                   <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                                  <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ YouTube Stream</span>
+                                  <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • YouTube Stream</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -1058,10 +1122,10 @@ export default function MainDashboardPage() {
                                   {customPlaylists?.length > 0 && (
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
-                                      className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                      className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
                                       title="Add to Playlist"
                                     >
-                                      âž•
+                                      ➕
                                     </button>
                                   )}
                                 </div>
@@ -1437,7 +1501,7 @@ export default function MainDashboardPage() {
                     <div 
                       key={song.id} 
                       onClick={() => playTrack(song, history)}
-                      className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                      className={`relative flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
                     >
                       <div className="flex items-center gap-4 min-w-0 flex-1">
                         <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
@@ -1446,7 +1510,7 @@ export default function MainDashboardPage() {
                         <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
                         <div className="flex flex-col min-w-0">
                           <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                          <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ {song.album}</span>
+                          <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 shrink-0 pl-3">
@@ -1466,8 +1530,33 @@ export default function MainDashboardPage() {
                           >
                             💚
                           </button>
+                          {customPlaylists?.length > 0 && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
+                              className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
+                              title="Add to Playlist"
+                            >
+                              ➕
+                            </button>
+                          )}
                         </div>
                       </div>
+
+                      {/* PLAYLIST SAVER POPOVER */}
+                      {playlistMenuOpenId === song.id && (
+                        <div className="absolute right-12 mt-12 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl py-1 w-40 z-30 text-left text-[11px] max-h-28 overflow-y-auto custom-scrollbar">
+                          <p className="text-zinc-500 font-bold font-mono px-2.5 py-1 border-b border-zinc-900 uppercase text-[8px] tracking-wider">Save to Playlist</p>
+                          {customPlaylists.map((p) => (
+                            <button 
+                              key={p.id}
+                              onClick={(e) => handleAddToPlaylist(e, song, p.id)}
+                              className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
+                            >
+                              📁 {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -1590,58 +1679,158 @@ export default function MainDashboardPage() {
           // ================== LIBRARY VIEWS (LIKED SONGS OR PLAYLISTS) ==================
           <div className="flex flex-col gap-4 animate-fade-in">
             <h2 className="text-sm font-extrabold uppercase tracking-[0.15em]" style={{ background: "linear-gradient(90deg,#ff2d55,#ff8ca0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {activeMenu === 'liked_songs' ? "My Favorite Tracks" : "Playlist Collection"}
+              {activeMenu === 'liked_songs' ? "My Favorite Tracks" : (customPlaylists.find(p => p.id === selectedPlaylistId)?.name || "Custom Playlist")}
             </h2>
             {libraryLoading ? (
-              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">âš¡ ACCESSING SUPABASE RECORDS...</div>
-            ) : librarySongs.length === 0 ? (
-              <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
-                <span className="text-2xl">💚</span>
-                <p className="text-xs text-zinc-500">Your library is currently empty. Go ahead and search for online tracks and hit Like or add them to your playlists!</p>
-              </div>
+              <div className="p-12 text-center text-xs font-bold text-zinc-600 font-mono animate-pulse">⚡ ACCESSING SUPABASE RECORDS...</div>
             ) : (
-              <div className="flex flex-col gap-1">
-                {librarySongs.map((song, idx) => {
-                  const isCurrentTrack = currentSong?.id === song.id
-                  return (
-                    <div 
-                      key={song.id} 
-                      onClick={() => playTrack(song, librarySongs)}
-                      className={`flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
-                    >
-                      <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
-                          {isCurrentTrack && isPlaying ? '🔊' : idx + 1}
-                        </span>
-                        <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
-                        <div className="flex flex-col min-w-0">
-                          <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
-                          <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} â€¢ {song.album}</span>
+              <>
+                {librarySongs.length === 0 ? (
+                  <div className="p-12 border border-zinc-900 border-dashed rounded-2xl text-center flex flex-col items-center justify-center gap-3">
+                    <span className="text-2xl">{activeMenu === 'liked_songs' ? '💚' : '📁'}</span>
+                    <p className="text-xs text-zinc-500">
+                      {activeMenu === 'liked_songs' 
+                        ? "Your library is currently empty. Go ahead and search for online tracks and hit Like!" 
+                        : "This playlist is currently empty. Use the search bar below to add tracks!"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {librarySongs.map((song, idx) => {
+                      const isCurrentTrack = currentSong?.id === song.id
+                      return (
+                        <div 
+                          key={song.id} 
+                          onClick={() => playTrack(song, librarySongs)}
+                          className={`relative flex items-center justify-between p-3 rounded-xl hover:bg-zinc-900/40 cursor-pointer group border transition-all ${isCurrentTrack ? 'bg-zinc-900/40 border-zinc-800' : 'border-transparent'}`}
+                        >
+                          <div className="flex items-center gap-4 min-w-0 flex-1">
+                            <span className={`text-xs font-mono font-bold w-4 text-center shrink-0 ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-600 group-hover:text-zinc-400'}`}>
+                              {isCurrentTrack && isPlaying ? '🔊' : idx + 1}
+                            </span>
+                            <img src={song.image_url} alt="" className="w-9 h-9 object-cover rounded-lg shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                              <span className={`text-sm font-bold truncate ${isCurrentTrack ? 'text-[#fa2d48]' : 'text-zinc-100'}`}>{song.title}</span>
+                              <span className="text-[11px] text-zinc-500 truncate mt-0.5">{song.artist} • {song.album}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 shrink-0 pl-3">
+                            <span className="text-[11px] text-zinc-500 font-mono">{formatDuration(song.duration)}</span>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
+                                className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
+                                title="Add to Queue"
+                              >
+                                + QUEUE
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); toggleFavorite(song, song.is_favorite) }} 
+                                className={`text-xs p-1 hover:scale-115 transition ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
+                                title="Favorite"
+                              >
+                                💚
+                              </button>
+                              {customPlaylists?.length > 0 && (
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setPlaylistMenuOpenId(playlistMenuOpenId === song.id ? null : song.id); }} 
+                                  className={`text-xs p-1 font-bold hover:scale-115 transition shrink-0 ${playlistMenuOpenId === song.id ? 'text-[#fa2d48]' : 'text-zinc-500'}`}
+                                  title="Add to Playlist"
+                                >
+                                  ➕
+                                </button>
+                              )}
+                              {activeMenu === 'custom_playlist' && (
+                                <button 
+                                  onClick={(e) => handleRemoveFromPlaylist(e, song.id, selectedPlaylistId)} 
+                                  className="text-xs p-1 hover:scale-115 transition text-zinc-500 hover:text-red-400 shrink-0"
+                                  title="Remove from Playlist"
+                                >
+                                  🗑️
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* PLAYLIST SAVER POPOVER */}
+                          {playlistMenuOpenId === song.id && (
+                            <div className="absolute right-12 mt-12 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl py-1 w-40 z-30 text-left text-[11px] max-h-28 overflow-y-auto custom-scrollbar">
+                              <p className="text-zinc-500 font-bold font-mono px-2.5 py-1 border-b border-zinc-900 uppercase text-[8px] tracking-wider">Save to Playlist</p>
+                              {customPlaylists.map((p) => (
+                                <button 
+                                  key={p.id}
+                                  onClick={(e) => handleAddToPlaylist(e, song, p.id)}
+                                  className="w-full text-zinc-300 hover:text-[#fa2d48] hover:bg-zinc-900 px-2.5 py-1.5 block truncate font-medium"
+                                >
+                                  📁 {p.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-4 shrink-0 pl-3">
-                        <span className="text-[11px] text-zinc-500 font-mono">{formatDuration(song.duration)}</span>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); addToQueue(song) }} 
-                            className="text-[10px] bg-zinc-805/80 hover:bg-[#fa2d48] text-zinc-300 hover:text-black px-2 py-0.5 rounded font-mono font-bold transition shrink-0"
-                            title="Add to Queue"
-                          >
-                            + QUEUE
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); toggleFavorite(song, song.is_favorite) }} 
-                            className={`text-xs p-1 hover:scale-115 transition ${song.is_favorite ? 'text-emerald-400' : 'text-zinc-500'}`}
-                            title="Favorite"
-                          >
-                            💚
-                          </button>
-                        </div>
-                      </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Inline Playlist Song Search & Add Utility */}
+                {activeMenu === 'custom_playlist' && selectedPlaylistId && (
+                  <div className="mt-8 border-t border-zinc-900/60 pt-6 flex flex-col gap-4 animate-fade-in">
+                    <div>
+                      <h3 className="text-xs font-bold font-mono text-zinc-300 uppercase tracking-widest flex items-center gap-2">
+                        <span>🔍</span> Add tracks to this playlist
+                      </h3>
+                      <p className="text-[10px] text-zinc-500 font-medium mt-1">Search JioSaavn library for songs to insert directly into this folder</p>
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="relative max-w-md">
+                      <input 
+                        type="text" 
+                        placeholder="Search songs to add..." 
+                        value={playlistSearchQuery}
+                        onChange={(e) => setPlaylistSearchQuery(e.target.value)}
+                        className="w-full bg-zinc-900/40 border border-zinc-800 rounded-full px-5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#fa2d48]/50 focus:bg-zinc-900/80 transition-all shadow-inner"
+                      />
+                      {playlistSearchQuery && (
+                        <button 
+                          onClick={() => { setPlaylistSearchQuery(''); setPlaylistSearchResults([]); }}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    
+                    {playlistSearchLoading ? (
+                      <div className="text-[11px] font-mono text-zinc-500 animate-pulse px-2 py-1">Accessing global streams...</div>
+                    ) : playlistSearchResults.length > 0 ? (
+                      <div className="flex flex-col gap-1 max-w-xl max-h-60 overflow-y-auto custom-scrollbar bg-zinc-950/20 p-2 rounded-2xl border border-zinc-900/60 mt-1">
+                        {playlistSearchResults.map((song) => (
+                          <div 
+                            key={song.id}
+                            className="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900/30 transition-all group"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <img src={song.image_url} alt="" className="w-8 h-8 object-cover rounded-lg shrink-0" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold text-zinc-200 truncate">{song.title}</span>
+                                <span className="text-[10px] text-zinc-500 truncate mt-0.5">{song.artist}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => handleAddToPlaylist(e, song, selectedPlaylistId)}
+                              className="text-[10px] bg-[#fa2d48]/10 hover:bg-[#fa2d48] text-[#fa2d48] hover:text-black font-extrabold px-3 py-1.5 rounded-full transition-all tracking-wider uppercase shrink-0"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : playlistSearchQuery.trim() && (
+                      <div className="text-[11px] text-zinc-550 italic px-2 py-1">No matches found for "{playlistSearchQuery}".</div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (
