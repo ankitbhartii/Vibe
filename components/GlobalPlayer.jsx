@@ -3,6 +3,27 @@ import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useAudio } from '@/context/AudioContext'
 import { updateProfileOnInteraction, scoreAndSortTracks, markAsDisliked } from '@/utils/recoEngine'
 
+const getHighResImageUrl = (url) => {
+  if (!url) return ''
+  if (url.includes('saavncdn.com')) {
+    return url.replace('150x150', '500x500')
+              .replace('250x250', '500x500')
+              .replace('350x350', '500x500')
+              .replace('50x50', '500x500')
+  }
+  if (url.includes('googleusercontent.com')) {
+    return url.replace(/=[ws]\d+([a-zA-Z0-9-]*)/, '=w1000-h1000-l90-rj')
+  }
+  if (url.includes('ytimg.com')) {
+    const cleanUrl = url.split('?')[0]
+    return cleanUrl.replace('/default.jpg', '/maxresdefault.jpg')
+                   .replace('/mqdefault.jpg', '/maxresdefault.jpg')
+                   .replace('/hqdefault.jpg', '/maxresdefault.jpg')
+                   .replace('/sddefault.jpg', '/maxresdefault.jpg')
+  }
+  return url
+}
+
 export default function GlobalPlayer() {
   const { 
     currentSong, isPlaying, setIsPlaying, audioRef,
@@ -1454,7 +1475,17 @@ export default function GlobalPlayer() {
         <div onClick={() => setIsExpanded(true)} className="flex items-center gap-3 w-1/3 min-w-[150px] md:min-w-[240px] cursor-pointer group">
           <div className="relative shrink-0">
             {currentSong.image_url ? (
-              <img src={currentSong.image_url} alt="" className="w-11 h-11 md:w-13 md:h-13 object-cover rounded-xl shadow-lg" style={{ transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)', border: '1px solid rgba(255,255,255,0.06)' }} />
+              <img 
+                src={getHighResImageUrl(currentSong.image_url)} 
+                onError={(e) => {
+                  if (e.target.src !== currentSong.image_url) {
+                    e.target.src = currentSong.image_url;
+                  }
+                }}
+                alt="" 
+                className="w-11 h-11 md:w-13 md:h-13 object-cover rounded-xl shadow-lg" 
+                style={{ transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)', border: '1px solid rgba(255,255,255,0.06)' }} 
+              />
             ) : (
               <div className="w-11 h-11 md:w-13 md:h-13 rounded-xl bg-white/[0.05] flex items-center justify-center font-bold text-xs md:text-sm text-zinc-500">🎵</div>
             )}
@@ -1709,7 +1740,17 @@ export default function GlobalPlayer() {
                   >
                     <div className="w-52 h-52 sm:w-60 sm:h-60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.6)] border border-zinc-800/30 opacity-60 scale-90" style={{ transition: 'none' }}>
                       {prevSong?.image_url
-                        ? <img src={prevSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
+                        ? <img 
+                            src={getHighResImageUrl(prevSong.image_url)} 
+                            onError={(e) => {
+                              if (e.target.src !== prevSong.image_url) {
+                                e.target.src = prevSong.image_url;
+                              }
+                            }}
+                            alt="" 
+                            className="w-full h-full object-cover pointer-events-none" 
+                            draggable={false} 
+                          />
                         : <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-3xl text-zinc-700">🎵</div>
                       }
                     </div>
@@ -1719,7 +1760,17 @@ export default function GlobalPlayer() {
                   <div className="w-1/3 h-full flex items-center justify-center flex-shrink-0">
                     <div className="w-56 h-56 sm:w-64 sm:h-64 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-zinc-800/40">
                       {displaySong?.image_url
-                        ? <img src={displaySong.image_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
+                        ? <img 
+                            src={getHighResImageUrl(displaySong.image_url)} 
+                            onError={(e) => {
+                              if (e.target.src !== displaySong.image_url) {
+                                e.target.src = displaySong.image_url;
+                              }
+                            }}
+                            alt="" 
+                            className="w-full h-full object-cover pointer-events-none" 
+                            draggable={false} 
+                          />
                         : <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center font-bold text-4xl text-zinc-600">🎵</div>
                       }
                     </div>
@@ -1731,7 +1782,17 @@ export default function GlobalPlayer() {
                   >
                     <div className="w-52 h-52 sm:w-60 sm:h-60 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.6)] border border-zinc-800/30 opacity-60 scale-90" style={{ transition: 'none' }}>
                       {nextSong?.image_url
-                        ? <img src={nextSong.image_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
+                        ? <img 
+                            src={getHighResImageUrl(nextSong.image_url)} 
+                            onError={(e) => {
+                              if (e.target.src !== nextSong.image_url) {
+                                e.target.src = nextSong.image_url;
+                              }
+                            }}
+                            alt="" 
+                            className="w-full h-full object-cover pointer-events-none" 
+                            draggable={false} 
+                          />
                         : <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-3xl text-zinc-700">🎵</div>
                       }
                     </div>
@@ -1960,7 +2021,18 @@ export default function GlobalPlayer() {
                 <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-zinc-700" /></div>
                 {/* Song header */}
                 <div className="flex items-center gap-3 px-5 py-3 border-b border-zinc-800/40">
-                  {currentSong?.image_url && <img src={currentSong.image_url} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0" />}
+                  {currentSong?.image_url && (
+                    <img 
+                      src={getHighResImageUrl(currentSong.image_url)} 
+                      onError={(e) => {
+                        if (e.target.src !== currentSong.image_url) {
+                          e.target.src = currentSong.image_url;
+                        }
+                      }}
+                      alt="" 
+                      className="w-12 h-12 rounded-xl object-cover shrink-0" 
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-bold text-white truncate">{currentSong?.title}</p>
                     <p className="text-[11px] text-zinc-500 truncate">{currentSong?.artist}</p>

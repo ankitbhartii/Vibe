@@ -78,7 +78,8 @@ export async function searchYTMusic(query, limit = 20) {
       // Extract thumbnail url
       let thumbnail = null
       if (song.thumbnail && song.thumbnail.contents && song.thumbnail.contents.length > 0) {
-        thumbnail = song.thumbnail.contents[0].url
+        // Take the highest resolution thumbnail (usually the last one in the contents array)
+        thumbnail = song.thumbnail.contents[song.thumbnail.contents.length - 1].url
       } else if (song.thumbnail && song.thumbnail.url) {
         thumbnail = song.thumbnail.url
       }

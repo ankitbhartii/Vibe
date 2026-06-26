@@ -3,6 +3,27 @@ import React, { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useAudio } from '@/context/AudioContext'
 import Link from 'next/link'
+
+const getHighResImageUrl = (url) => {
+  if (!url) return ''
+  if (url.includes('saavncdn.com')) {
+    return url.replace('150x150', '500x500')
+              .replace('250x250', '500x500')
+              .replace('350x350', '500x500')
+              .replace('50x50', '500x500')
+  }
+  if (url.includes('googleusercontent.com')) {
+    return url.replace(/=[ws]\d+([a-zA-Z0-9-]*)/, '=w1000-h1000-l90-rj')
+  }
+  if (url.includes('ytimg.com')) {
+    const cleanUrl = url.split('?')[0]
+    return cleanUrl.replace('/default.jpg', '/maxresdefault.jpg')
+                   .replace('/mqdefault.jpg', '/maxresdefault.jpg')
+                   .replace('/hqdefault.jpg', '/maxresdefault.jpg')
+                   .replace('/sddefault.jpg', '/maxresdefault.jpg')
+  }
+  return url
+}
 const TRENDING_PODCASTS = [
   {
     id: '62',
@@ -733,7 +754,16 @@ export default function MainDashboardPage() {
 
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-end bg-gradient-to-b from-zinc-900/60 to-transparent p-6 rounded-3xl border border-zinc-900/40">
               <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 shrink-0 relative group">
-                <img src={selectedSaavnItem.image_url} alt="" className="w-full h-full object-cover" />
+                <img 
+                  src={getHighResImageUrl(selectedSaavnItem.image_url)} 
+                  onError={(e) => {
+                    if (e.target.src !== selectedSaavnItem.image_url) {
+                      e.target.src = selectedSaavnItem.image_url;
+                    }
+                  }}
+                  alt="" 
+                  className="w-full h-full object-cover" 
+                />
               </div>
               <div className="flex flex-col text-center md:text-left gap-2 min-w-0">
                 <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono font-bold">{selectedSaavnItem.type}</span>
@@ -1913,7 +1943,17 @@ export default function MainDashboardPage() {
                         >
                           <div className="w-full aspect-square rounded-2xl relative overflow-hidden shadow-md bg-zinc-950 border border-zinc-900/60 group-hover:border-zinc-700/80 transition-all duration-300 group-hover:shadow-[0_8px_25px_rgba(0,0,0,0.6)] animate-float-in apple-card-hover">
                             {song.image_url ? (
-                              <img src={song.image_url} alt="" className="w-full h-full object-cover gpu-accel" loading="lazy" />
+                              <img 
+                                src={getHighResImageUrl(song.image_url)} 
+                                onError={(e) => {
+                                  if (e.target.src !== song.image_url) {
+                                    e.target.src = song.image_url;
+                                  }
+                                }}
+                                alt="" 
+                                className="w-full h-full object-cover gpu-accel" 
+                                loading="lazy" 
+                              />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center text-xl font-serif text-zinc-500 font-bold">
                                 🎥
