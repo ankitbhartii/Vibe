@@ -324,3 +324,47 @@ input[type="file"]::file-selector-button:hover {
 .progress-smooth {
   transition: width 0.3s linear;
 }
+
+/* ================= FLUID AMBIENT GLOW ANIMATIONS ================= */
+@keyframes fluidBlob1 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(40px, -60px) scale(1.3) rotate(120deg);
+  }
+  66% {
+    transform: translate(-30px, 30px) scale(0.8) rotate(240deg);
+  }
+}
+
+@keyframes fluidBlob2 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1.1) rotate(360deg);
+  }
+  50% {
+    transform: translate(-50px, 50px) scale(0.85) rotate(180deg);
+  }
+}
+
+@keyframes fluidBlob3 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(0.9) rotate(0deg);
+  }
+  40% {
+    transform: translate(60px, 40px) scale(1.2) rotate(100deg);
+  }
+  80% {
+    transform: translate(-40px, -30px) scale(0.8) rotate(260deg);
+  }
+}
+
+.animate-fluid-blob-1 {
+  animation: fluidBlob1 35s ease-in-out infinite;
+}
+.animate-fluid-blob-2 {
+  animation: fluidBlob2 45s ease-in-out infinite;
+}
+.animate-fluid-blob-3 {
+  animation: fluidBlob3 40s ease-in-out infinite;
+}

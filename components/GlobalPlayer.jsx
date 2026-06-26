@@ -1518,15 +1518,30 @@ export default function GlobalPlayer() {
           }}
         >
           {/* Dynamic Blurred Adaptive Backdrop — Apple Music style */}
-          <div 
-            className="absolute inset-0 bg-cover bg-center -z-10 scale-125 gpu-accel"
-            style={{ 
-              backgroundImage: `url(${currentSong.image_url})`,
-              filter: 'blur(80px) brightness(0.18) saturate(1.4)',
-              transition: 'background-image 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/90 -z-10" />
+          <div className="absolute inset-0 overflow-hidden -z-10 select-none pointer-events-none">
+            {/* Blob 1: Base blurred cover art */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center scale-150 opacity-50 blur-[100px] brightness-[0.25] saturate-[1.6] transition-all duration-[2000ms] ease-in-out"
+              style={{ backgroundImage: `url(${currentSong.image_url})` }}
+            />
+            {/* Blob 2: Animated floating secondary blob */}
+            <div 
+              className="absolute -top-[20%] -right-[20%] w-[85%] h-[85%] bg-cover bg-center rounded-full opacity-35 blur-[120px] saturate-[1.8] animate-fluid-blob-1 mix-blend-screen transition-all duration-[2000ms] ease-in-out"
+              style={{ backgroundImage: `url(${currentSong.image_url})` }}
+            />
+            {/* Blob 3: Animated floating tertiary blob */}
+            <div 
+              className="absolute -bottom-[20%] -left-[20%] w-[85%] h-[85%] bg-cover bg-center rounded-full opacity-35 blur-[120px] saturate-[1.8] animate-fluid-blob-2 mix-blend-screen transition-all duration-[2000ms] ease-in-out"
+              style={{ backgroundImage: `url(${currentSong.image_url})` }}
+            />
+            {/* Blob 4: Center floating ambient blob */}
+            <div 
+              className="absolute top-[10%] left-[10%] w-[75%] h-[75%] bg-cover bg-center rounded-full opacity-20 blur-[100px] saturate-[1.5] animate-fluid-blob-3 mix-blend-screen transition-all duration-[2000ms] ease-in-out"
+              style={{ backgroundImage: `url(${currentSong.image_url})` }}
+            />
+            {/* Dark overlay gradient to ensure text readability */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/95" />
+          </div>
 
           {/* HEADER ROW */}
           <div 
