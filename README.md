@@ -1,4 +1,4 @@
-# Vibe Music Player 🎵
+# Vibe Music Player 🎵 
 
 Vibe is a premium, dark-mode, serverless-compatible instant music player built with Next.js, featuring real-time JioSaavn integrations, dynamic stream decryption, and custom playlist synchronization via Supabase.
 
