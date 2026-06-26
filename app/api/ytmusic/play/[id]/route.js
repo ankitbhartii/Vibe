@@ -104,6 +104,30 @@ export async function GET(request, { params }) {
       return new Response('Video ID is required', { status: 400 })
     }
 
+    // ── Priority 0: Self-hosted yt-dlp API ──
+    const SELF_HOSTED_API = process.env.SELF_HOSTED_API || 'http://13.207.41.71'
+    try {
+      console.log(`📡 Fetching direct audio URL from self-hosted yt-dlp API for video ID: ${id}`)
+      const response = await fetch(`${SELF_HOSTED_API}/audio/${id}`, {
+        signal: AbortSignal.timeout(10000)
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data && data.audioUrl) {
+          console.log(`✅ Resolved via Self-hosted API. Redirecting to: ${data.audioUrl.slice(0, 120)}...`)
+          return new Response(null, {
+            status: 307,
+            headers: {
+              'Location': data.audioUrl,
+              'Cache-Control': 'public, max-age=3600'
+            }
+          })
+        }
+      }
+    } catch (err) {
+      console.warn(`⚠️ Self-hosted API failed:`, err.message)
+    }
+
     const isVercel = process.env.VERCEL === '1'
     const hasProxy = !!process.env.PROXY_HOST
 
