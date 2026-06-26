@@ -367,4 +367,9 @@ input[type="file"]::file-selector-button:hover {
 }
 .animate-fluid-blob-3 {
   animation: fluidBlob3 40s ease-in-out infinite;
-}
+}
+
+.lyric-line-interactive {
+  will-change: transform, opacity;
+}
+

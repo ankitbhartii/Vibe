@@ -1072,6 +1072,7 @@ export default function GlobalPlayer() {
                   <p
                     key={idx}
                     ref={el => { if (el) lineRefsMap.current[idx] = el }}
+                    className="lyric-line-interactive group relative py-1 px-8 rounded-xl hover:bg-white/5 active:scale-[0.97] transition-all duration-300"
                     onClick={() => {
                       if (isYTSong && ytPlayerRef.current) {
                         try { ytPlayerRef.current.seekTo(line.time, true) } catch (_) {}
@@ -1090,14 +1091,16 @@ export default function GlobalPlayer() {
                       textShadow,
                       transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s cubic-bezier(0.4,0,0.2,1), color 0.4s ease, text-shadow 0.4s ease',
                       lineHeight: '1.6',
-                      padding: '0.3rem 0',
                       cursor: 'pointer',
                       textAlign: 'center',
                       transformOrigin: 'center center',
-                      willChange: 'transform, opacity',
                       userSelect: 'none',
                     }}
                   >
+                    {/* Seek play indicator */}
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 text-[10px] text-[#fa2d48] font-bold">
+                      ▶
+                    </span>
                     {line.text}
                   </p>
                 )
